@@ -2,7 +2,7 @@ C     sudo gfortran -Wall -O3 -fPIC -cpp -c ./trajectory_integration_module.f
 C                                      -> option "-cpp" enables C-style preprocessing for macros.
 C     sudo gfortran -cpp -fc-prototypes -fsyntax-only ./trajectory_integration_module.f > ./trajectory_integration_module.h
 
-#define MAX_TRAJECTORY_POINTS 131072
+#define MAX_TRAJECTORY_POINTS 1048576
 C     ^^ IF YOU CHANGE IT HERE, YOU NEED TO CHANGE IT IN THE C FILE ALSO
 
       module trajectory_integration

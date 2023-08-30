@@ -2,7 +2,7 @@
 #include "matrix.h"
 #include "trajectory_integration_module.h"
 
-#define MAX_TRAJECTORY_POINTS 131072
+#define MAX_TRAJECTORY_POINTS 1048576
 //      ^^ IF YOU CHANGE IT HERE, YOU NEED TO CHANGE IT IN THE FORTRAN FILE ALSO
 
 void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
