@@ -11,6 +11,7 @@
 %
 %
 %  dknapp, 30.8.2023: Wrote script.
+%  dknapp,  1.9.2023: Added Maxwell-Boltzmann distribution initialization
 
 %% Variables to set beforehand
 %  This code block contains all scalar variables to be set before the
@@ -73,7 +74,7 @@ d = 0.1;                % mm
 % If an ion leaves the simulation domain or hits an electrode, it may not
 %   survive all the way until end_time
 start_time =  0.0;      % us
-end_time   =  25.0;     % us
+end_time   =  5.0;     % us
 
 % Particle specifications
 m = 2.0;                % amu (e.g. 2.0 would be roughly correct for H2+)
@@ -109,9 +110,9 @@ voltages = zeros([time_steps, length(electrode_names)]);
 
 % Below here, write whatever code you need for generating the voltages
 % in Hz
-RF_frequency = 15.0 * 10.0^6;
+RF_frequency = 100.0 * 10.0^6;
 % in volts
-RF_amplitude = 350.0;
+RF_amplitude = 10000.0;
 endcap_voltage = 10.0;
 
 % RF electrodes: 1, 2
@@ -146,16 +147,17 @@ zz1 = d * double(dimensions(3)) / 2.0; % mm
 % If we put the ion at the center of the trap with zero initial speed, it
 %   will just sit there quietly.  A nice way to give it some speed is by
 %   specifying a temperature and choosing a speed based on that.
+T = 1;
 maxwell = @(v) maxwell_pdf(v, m, T);
 % Maxwell-Boltzmann distribution speeds
-v = general_distribution(N, dv, vmax, desired_pdf);
+v = general_distribution(1, 1, 10000, maxwell) * 1.0e-3;
 % Uniform distribution directions
 theta = 2 * pi * rand();
 phi = 2 * pi * rand();
-
-vxx = r * sin(theta) * cos(phi);         % mm / us
-vyy = r * sin(theta) * sin(phi);
-z = r * cos(theta);
+% Convert speed & direction -> velocity
+vxx1 = v * sin(theta) * cos(phi);      % mm / us
+vyy1 = v * sin(theta) * sin(phi);      % mm / us
+vzz1 = v * cos(theta);                 % mm / us
 
 %% Integration: MATLAB version
 % ion_trajectory =  integrate_trajectory(xx1, yy1, zz1, vxx1, vyy1, vzz1, ...
@@ -192,61 +194,8 @@ elapsed_time = toc;
 fprintf("Simulation took %.3gs (%d it/s)\n", elapsed_time, round(its / elapsed_time));
 %% Plot result
 
-% Hard to tell what's going on with this one
-% figure
-% plot3(x_traj, y_traj, z_traj)
-% axis equal
-% xlim([0, dimensions(1) * d])
-% ylim([0, dimensions(2) * d])
-% zlim([0, dimensions(3) * d])
-
-figure('units','normalized','outerposition',[0 0 1 1])
-tiledlayout(7, 1)
-nexttile
-plot(ts, x_traj);
-xlim([start_time, ts(end)])
-% ylim([0, dimensions(1) * d])
-ylabel('x (mm)')
-title(sprintf("%d total timesteps simulated, %.3g(s) taken (%.0f(it/s))", ...
-    length(ts), elapsed_time, ...
-    double(length(ts)) / elapsed_time))
-
-nexttile
-plot(ts, y_traj);
-xlim([start_time, ts(end)])
-% ylim([0, dimensions(2) * d])
-ylabel('y (mm)')
-
-nexttile
-plot(ts, z_traj);
-xlim([start_time, ts(end)])
-% ylim([0, dimensions(3) * d])
-ylabel('z (mm)')
-
-nexttile
-plot(ts, cos(2 * pi * ts * RF_frequency / 10.0^6));
-xlim([start_time, ts(end)])
-ylabel('RF Voltage (V)')
-
-% E fields
-nexttile
-plot(ts, exs);
-xlim([start_time, ts(end)])
-ylabel('Ex (V/m)')
-
-nexttile
-plot(ts, eys);
-xlim([start_time, ts(end)])
-ylabel('Ey (V/m)')
-
-nexttile
-plot(ts, ezs);
-xlim([start_time, ts(end)])
-ylabel('Ez (V/m)')
-
-xlabel('t (us)')
-
-fprintf("Time of last data point recorded:      %.3g us\n", ts(end));
+stacked_motion_plots(true, ts, x_traj, y_traj, z_traj, ...
+    exs, eys, ezs, RF_frequency, RF_amplitude, start_time, end_time, elapsed_time)
 
 %% FFT analysis
 if((abs(ts(end) - end_time) < (end_time - start_time) * 1e-3) ...
