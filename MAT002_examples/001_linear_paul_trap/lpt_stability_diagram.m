@@ -24,9 +24,9 @@ if ~exist('dimensions', 'var') || loadanyways
 end
 
 %% Parameter sweep values & array for results
-res = 256;
+res = 64;
 amplitudes = linspace(0, 800, res);
-endcap_voltages = linspace(-25, 0, res);
+endcap_voltages = linspace(0, 800, res);
 lifetimes = zeros(res);
 
 %% Run parameter sweep
@@ -71,7 +71,7 @@ for a_idx = 1:res
             voltages(:, electrode) = ones([time_steps, 1], "double") * endcap_voltage;
         end
         
-        T = 3; % Kelvin
+        T = 30; % Kelvin
         maxwell = @(v) maxwell_pdf(v, m, T);
         v = general_distribution(1, 1, 10000, maxwell) * 1.0e-3; % mm / us
         theta = 2 * pi * rand();

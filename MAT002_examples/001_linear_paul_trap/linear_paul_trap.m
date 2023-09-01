@@ -110,9 +110,9 @@ voltages = zeros([time_steps, length(electrode_names)]);
 
 % Below here, write whatever code you need for generating the voltages
 % in Hz
-RF_frequency = 15.0 * 10.0^6;
+RF_frequency = 100.0 * 10.0^6;
 % in volts
-RF_amplitude = 350.0;
+RF_amplitude = 10000.0;
 endcap_voltage = 10.0;
 
 % RF electrodes: 1, 2
@@ -194,127 +194,13 @@ elapsed_time = toc;
 fprintf("Simulation took %.3gs (%d it/s)\n", elapsed_time, round(its / elapsed_time));
 %% Plot result
 
-% Hard to tell what's going on with this one
-% figure
-% plot3(x_traj, y_traj, z_traj)
-% axis equal
-% xlim([0, dimensions(1) * d])
-% ylim([0, dimensions(2) * d])
-% zlim([0, dimensions(3) * d])
-
-% figure('units','normalized','outerposition',[0 0 1 1])
-tiledlayout(7, 1)
-nexttile
-plot(ts, x_traj);
-xlim([start_time, ts(end)])
-% ylim([0, dimensions(1) * d])
-ylabel('x (mm)')
-title(sprintf("%d total timesteps simulated, %.3g(s) taken (%.0f(it/s))", ...
-    length(ts), elapsed_time, ...
-    double(length(ts)) / elapsed_time))
-
-nexttile
-plot(ts, y_traj);
-xlim([start_time, ts(end)])
-% ylim([0, dimensions(2) * d])
-ylabel('y (mm)')
-
-nexttile
-plot(ts, z_traj);
-xlim([start_time, ts(end)])
-% ylim([0, dimensions(3) * d])
-ylabel('z (mm)')
-
-nexttile
-plot(ts, cos(2 * pi * ts * RF_frequency / 10.0^6));
-xlim([start_time, ts(end)])
-ylabel('RF Voltage (V)')
-
-% E fields
-nexttile
-plot(ts, exs);
-xlim([start_time, ts(end)])
-ylabel('Ex (V/m)')
-
-nexttile
-plot(ts, eys);
-xlim([start_time, ts(end)])
-ylabel('Ey (V/m)')
-
-nexttile
-plot(ts, ezs);
-xlim([start_time, ts(end)])
-ylabel('Ez (V/m)')
-
-xlabel('t (us)')
-
-fprintf("Time of last data point recorded:      %.3g us\n", ts(end));
+stacked_motion_plots(true, ts, x_traj, y_traj, z_traj, ...
+    exs, eys, ezs, RF_frequency, RF_amplitude, start_time, elapsed_time)
 
 %% FFT analysis
 if((abs(ts(end) - end_time) < (end_time - start_time) * 1e-3) ...
         || (its == original_length))
-    % Remove constant offset
-    clean_traj = x_traj - mean(x_traj);
-    % Resample so that points are equally spaced
-    new_samples = linspace(ts(1), ts(end), ...
-                           round(length(clean_traj) / 2) * 2);
-    dt = new_samples(2) - new_samples(1);
-    clean_traj = interp1(ts, clean_traj, new_samples);
-    
-    L = double(length(clean_traj));
-    P2 = abs(fft(clean_traj) / L);
-    P1 = P2(1:L / 2 + 1);
-    P1(2:end - 1) = 2 * P1(2:end - 1);
-    
-    f = (1.0 / dt) * (0:(L/2))/L;
-    figure
-    plot(f,P1, '-')
-    xlim([0, RF_frequency * 2.0e-6])
-    xlabel('Frequency (MHz)')
-    ylabel('Amplitude (mm)')
-    title('Frequency components of ion motion x component')
-    xline(RF_frequency * 1.0e-6, '--')
-    max_index = find(P1 == max(P1), 1);
-    max_freq = f(max_index) * 1.0e+6;
-    xline(RF_frequency * 1.0e-6 - max_freq * 1.0e-6, '--')
-    xline(RF_frequency * 1.0e-6 + max_freq * 1.0e-6, '--')
-    legend('FFT', 'RF Frequency', 'RF - Secular', 'RF + Secular')
-    
-    % Find peak frequency component -> calculate "harmonic" potential shape
-    fprintf('Secular x frequency:                 %.3g MHz\n', max_freq / 1.0e+6);
-    
-    % r_0 calculation -> see notes (???)
-    r0 = ((1.602e-19^2 * RF_amplitude^2) / (4.0 * 1.6605e-27^2 * RF_frequency^2 * max_freq^2))^0.25;
-    fprintf("r_0 predicted from FFT result is:    " + ...
-            "%.3g mm\n", 1.0e+3 * r0);
-    
-    % Trap depth
-    trap_depth = ((1.602e-19^2 * RF_amplitude^2) / (4.0 * 1.6605e-27 * RF_frequency^2 * r0^2)) / 1.602e-19;
-    fprintf("Trap depth is:                       " + ...
-            "%.3g eV (%.3g K)\n", trap_depth, trap_depth / 8.617e-5);
-end
-
-%% Sanity check FFT of Ex
-if((abs(ts(end) - end_time) < (end_time - start_time) * 1e-3) ...
-        || (its == original_length))
-    new_samples = linspace(ts(1), ts(end), ...
-                           round(length(clean_traj) / 2) * 2);
-    dt = new_samples(2) - new_samples(1);
-    Ex = interp1(ts, exs, new_samples);
-    L = double(length(Ex));
-    P2 = abs(fft(Ex) / L);
-    P1 = P2(1:L / 2 + 1);
-    P1(2:end - 1) = 2 * P1(2:end - 1);
-    figure
-    plot(f,P1, '-')
-    xlim([0, RF_frequency * 2.0e-6])
-    xlabel('Frequency (MHz)')
-    ylabel('Amplitude (V/m)')
-    title('Frequency components of ion''s felt E field, x component')
-    xline(RF_frequency * 1.0e-6, '--')
-    xline(RF_frequency * 1.0e-6 - max_freq * 1.0e-6, '--')
-    xline(RF_frequency * 1.0e-6 + max_freq * 1.0e-6, '--')
-    legend('FFT', 'RF Frequency', 'RF - Secular', 'RF + Secular')
+    motion_fft(ts, x_traj, RF_frequency, RF_amplitude, 'x');
 end
 
 
