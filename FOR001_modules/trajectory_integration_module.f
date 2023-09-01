@@ -214,7 +214,6 @@ C     Dummy variables:
      &      :: x_traj, y_traj, z_traj, ts, exs, eys, ezs
       real(c_double), intent(out) :: its
       integer :: idx, iter
-      real(c_double), dimension(n_electrodes) :: interpolated_voltages
 
 
 C     Unit conversions.  For simplicity, we work with SI units within 
@@ -285,9 +284,9 @@ C           Check if particle is alive
      &            .or. (y > (dimensions(2) - 2) * d)
      &            .or. (z > (dimensions(3) - 2) * d)) then
                   t = maxt
-C             else if (is_electrode(NINT(x/d), NINT(y/d), NINT(z/d)) == 1)
-C      &       then
-C                   t = maxt
+            else if (is_electrode(NINT(x/d), NINT(y/d), NINT(z/d)) == 1)
+     &       then
+                  t = maxt
             end if
 
             vx = vx + tstep * (ex_new + ex) * cmr / 2
