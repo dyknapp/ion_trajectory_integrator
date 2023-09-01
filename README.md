@@ -22,3 +22,7 @@ Finally, a MATLAB command for compiling the C wrapper into a `.mex` file:
 >> mex -r2018a -lgfortran C__001_wrappers/trajectory_integration_module.c FOR001_modules/trajectory_integration_module.o
 ```
 Now, you should have a MATLAB mex function with the same name as the C file you just compiled.
+
+TODO:
+- Improve stability.  FORTRAN segmentation faults will crash MATLAB.  Is there a better way to handle them?
+		- Why do we still get occaisional FORTRAN segmentation faults anyways?  This needs to be fixed.

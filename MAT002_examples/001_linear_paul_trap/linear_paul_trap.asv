@@ -56,7 +56,7 @@ start_line = 22;
 %   cause errors if you run this code immediately after having worked on a
 %   different set of SIMION potentials, so make sure to clear the workspace
 %   in such cases.  If you are nervous and willing to wait each time for
-%   the files to l
+%   the files to load, better to set "loadanyways = true;".
 loadanyways = false;
 if ~exist('dimensions', 'var') || loadanyways
     addpath(simion_path)
@@ -146,15 +146,16 @@ zz1 = d * double(dimensions(3)) / 2.0; % mm
 % If we put the ion at the center of the trap with zero initial speed, it
 %   will just sit there quietly.  A nice way to give it some speed is by
 %   specifying a temperature and choosing a speed based on that.
-% TODO: redo this properly, using the Maxwell-Boltzmann distribution code
-%   and taking into account the velocity magnitude vs velocity components
-T = 1.0; % Kelvin
-k = 1.380649e-23; % Boltzmann's constant, joule per kelvin
-v_sigma = 1.0e-3 * sqrt(2 * k * T / ((1.660539067e-27) * m)); % mm / us
-vxx1 = normrnd(0, v_sigma);            % mm / us
-vyy1 = normrnd(0, v_sigma);            % mm / us
-vzz1 = normrnd(0, v_sigma);            % mm / us
+maxwell = @(v) maxwell_pdf(v, m, T);
+% Maxwell-Boltzmann distribution speeds
+v = general_distribution(N, dv, vmax, desired_pdf);
+% Uniform distribution directions
+theta = 2 * pi * rand();
+phi = 2 * pi * rand();
 
+vxx = r * sin(theta) * cos(phi);         % mm / us
+vyy = r * sin(theta) * sin(phi);
+z = r * cos(theta);
 
 %% Integration: MATLAB version
 % ion_trajectory =  integrate_trajectory(xx1, yy1, zz1, vxx1, vyy1, vzz1, ...

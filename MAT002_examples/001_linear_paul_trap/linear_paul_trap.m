@@ -11,6 +11,7 @@
 %
 %
 %  dknapp, 30.8.2023: Wrote script.
+%  dknapp,  1.9.2023: Added Maxwell-Boltzmann distribution initialization
 
 %% Variables to set beforehand
 %  This code block contains all scalar variables to be set before the
@@ -73,7 +74,7 @@ d = 0.1;                % mm
 % If an ion leaves the simulation domain or hits an electrode, it may not
 %   survive all the way until end_time
 start_time =  0.0;      % us
-end_time   =  25.0;     % us
+end_time   =  5.0;     % us
 
 % Particle specifications
 m = 2.0;                % amu (e.g. 2.0 would be roughly correct for H2+)
@@ -146,15 +147,17 @@ zz1 = d * double(dimensions(3)) / 2.0; % mm
 % If we put the ion at the center of the trap with zero initial speed, it
 %   will just sit there quietly.  A nice way to give it some speed is by
 %   specifying a temperature and choosing a speed based on that.
-% TODO: redo this properly, using the Maxwell-Boltzmann distribution code
-%   and taking into account the velocity magnitude vs velocity components
-T = 1.0; % Kelvin
-k = 1.380649e-23; % Boltzmann's constant, joule per kelvin
-v_sigma = 1.0e-3 * sqrt(2 * k * T / ((1.660539067e-27) * m)); % mm / us
-vxx1 = normrnd(0, v_sigma);            % mm / us
-vyy1 = normrnd(0, v_sigma);            % mm / us
-vzz1 = normrnd(0, v_sigma);            % mm / us
-
+T = 1;
+maxwell = @(v) maxwell_pdf(v, m, T);
+% Maxwell-Boltzmann distribution speeds
+v = general_distribution(1, 1, 10000, maxwell) * 1.0e-3;
+% Uniform distribution directions
+theta = 2 * pi * rand();
+phi = 2 * pi * rand();
+% Convert speed & direction -> velocity
+vxx1 = v * sin(theta) * cos(phi);      % mm / us
+vyy1 = v * sin(theta) * sin(phi);      % mm / us
+vzz1 = v * cos(theta);                 % mm / us
 
 %% Integration: MATLAB version
 % ion_trajectory =  integrate_trajectory(xx1, yy1, zz1, vxx1, vyy1, vzz1, ...
@@ -199,7 +202,7 @@ fprintf("Simulation took %.3gs (%d it/s)\n", elapsed_time, round(its / elapsed_t
 % ylim([0, dimensions(2) * d])
 % zlim([0, dimensions(3) * d])
 
-figure('units','normalized','outerposition',[0 0 1 1])
+% figure('units','normalized','outerposition',[0 0 1 1])
 tiledlayout(7, 1)
 nexttile
 plot(ts, x_traj);
