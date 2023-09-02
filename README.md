@@ -14,6 +14,20 @@ For convenience, open MATLAB from the same directory as this README.  Check in M
 
 `.mex` files are not compatible for different platforms.  When you start working, you need to compile a new .mex file for yourself, usng the `FORTRAN_to_mex.m` script.
 
+## Platform compatibility
+UNIX: Assumes that gfortran and gcc are installed.
+WINDOWS: Assumes that WSL is installed along with gfortran & gcc.  
+  MinGW-w64 should also be installed on windows.
+  IMPORTANT: Mingw-w64 PATH MUST NOT HAVE ANY SPACES IN IT
+  I reccomend POSIX threading MSVCRT runtime: 
+      https://github.com/niXman/mingw-builds-binaries
+  Then, set the MATLAB environment variable for it:
+      >> configuremingw('/path/to/mingw64')
+         ^^ This only works when MATLAB is run as administrator
+  A weird quirk is that the path to Mingw-w64 CANNOT HAVE SPACES IN IT
+  See:
+      >> helpview([docroot '/matlab/helptargets.map'], 'install_mingw')
+
 ## Operability Status
 
 - ./C__002_test_wrappers is currently out of commission (coming soon)

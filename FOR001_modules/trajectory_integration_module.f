@@ -1,7 +1,3 @@
-C     sudo gfortran -Wall -O3 -fPIC -cpp -c ./trajectory_integration_module.f
-C                                      -> option "-cpp" enables C-style preprocessing for macros.
-C     sudo gfortran -cpp -fc-prototypes -fsyntax-only ./trajectory_integration_module.f > ./trajectory_integration_module.h
-
 #define MAX_TRAJECTORY_POINTS 1048576
 C     ^^ IF YOU CHANGE IT HERE, YOU NEED TO CHANGE IT IN THE C FILE ALSO
 
@@ -17,7 +13,7 @@ C     Function for linear interpolation on a 4x4x4 lattice
       real(c_double), dimension(64), intent(in) :: matrix_in
       real(c_double), dimension(4, 4, 4) :: matrix
       real(c_double) :: lininterpolate3D
-      integer(c_int) :: x_grid, y_grid, z_grid
+      integer(c_int) :: x_grid, y_grid, z_grid, i, j, k
       real(c_double) :: x_rel, y_rel, z_rel
       real(c_double) :: x, y, z
       real(c_double) :: a, b, c, d, e, f, g, h
@@ -25,7 +21,15 @@ C     Function for linear interpolation on a 4x4x4 lattice
       real(c_double) :: fx, xp
 
 C     Reshape the input matrix
-      matrix = RESHAPE(matrix_in, (/4, 4, 4/))
+C       matrix = RESHAPE(matrix_in, (/4, 4, 4/))
+      do i = 1, 4
+            do j = 1, 4
+                  do k = 1, 4
+                        matrix(i, j, k)
+     &                        = matrix_in(16*i + 8*j + k)
+                  end do
+            end do
+      end do
 
 C     Rescale to match the lattice
       x = xin / d_grid;
