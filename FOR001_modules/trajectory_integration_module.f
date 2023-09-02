@@ -7,58 +7,38 @@ C     ^^ IF YOU CHANGE IT HERE, YOU NEED TO CHANGE IT IN THE C FILE ALSO
 
       contains
 C     Function for linear interpolation on a 4x4x4 lattice
-      function lininterpolate3D(matrix_in, xin, yin, zin, d_grid) 
+C     Optimized specifically for this application:
+C           assumes that point is 2 <= q < 3
+      function lininterpolate3D(matrix, xin, yin, zin, d_grid) 
      & bind(c, name = "lininterpolate3D")
       real(c_double), intent(in) :: xin, yin, zin, d_grid
-      real(c_double), dimension(64), intent(in) :: matrix_in
-      real(c_double), dimension(4, 4, 4) :: matrix
+      real(c_double), dimension(64), intent(in) :: matrix
       real(c_double) :: lininterpolate3D
-      integer(c_int) :: x_grid, y_grid, z_grid, i, j, k
       real(c_double) :: x_rel, y_rel, z_rel
       real(c_double) :: x, y, z
       real(c_double) :: a, b, c, d, e, f, g, h
       real(c_double) :: cg, ad, eh, bf
       real(c_double) :: fx, xp
 
-C     Reshape the input matrix
-C       matrix = RESHAPE(matrix_in, (/4, 4, 4/))
-      do i = 1, 4
-            do j = 1, 4
-                  do k = 1, 4
-                        matrix(i, j, k)
-     &                        = matrix_in(16*i + 8*j + k)
-                  end do
-            end do
-      end do
-
-C     Rescale to match the lattice
-      x = xin / d_grid;
-      y = yin / d_grid;
-      z = zin / d_grid;
-
-C     Find the index which represents the coordinates
-      x_grid = FLOOR(x)
-      y_grid = FLOOR(y)
-      z_grid = FLOOR(z)
+C     Correct to grid spacing
+      x = xin / d_grid
+      y = yin / d_grid
+      z = zin / d_grid
 
 C     Find the coordinate relative to the calculated index
-      x_rel = x - x_grid
-      y_rel = y - y_grid
-      z_rel = z - z_grid
-
-C       x_grid = x_grid + 1
-C       y_grid = y_grid + 1
-C       z_grid = z_grid + 1
+      x_rel = x - dble(2.0)
+      y_rel = y - dble(2.0)
+      z_rel = z - dble(2.0)
 
 C     Store 8 of the nearest gridpoints to interpolate between
-      a = matrix(x_grid, y_grid, z_grid)
-      b = matrix(x_grid + 1, y_grid, z_grid)
-      c = matrix(x_grid, y_grid + 1, z_grid)
-      d = matrix(x_grid, y_grid, z_grid + 1)
-      e = matrix(x_grid + 1, y_grid + 1, z_grid)
-      f = matrix(x_grid + 1, y_grid, z_grid + 1)
-      g = matrix(x_grid, y_grid + 1, z_grid + 1)
-      h = matrix(x_grid + 1, y_grid + 1, z_grid + 1)
+      a = matrix(2 + 4*(2 - 1) + 16*(2 - 1))
+      b = matrix(3 + 4*(2 - 1) + 16*(2 - 1))
+      c = matrix(2 + 4*(3 - 1) + 16*(2 - 1))
+      d = matrix(2 + 4*(2 - 1) + 16*(3 - 1))
+      e = matrix(3 + 4*(3 - 1) + 16*(2 - 1))
+      f = matrix(3 + 4*(2 - 1) + 16*(3 - 1))
+      g = matrix(2 + 4*(3 - 1) + 16*(3 - 1))
+      h = matrix(3 + 4*(3 - 1) + 16*(3 - 1))
 
 C     interpolate matrix along the gridlines
       cg = z_rel * g + (1 - z_rel) * c
