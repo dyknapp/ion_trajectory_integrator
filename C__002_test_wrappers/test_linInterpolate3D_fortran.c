@@ -1,28 +1,20 @@
-#include <stdio.h>
-#include "linInterpolate3D_fortran.h"
+//>> !gfortran -Wall -Ofast -fPIC -c -cpp FOR001_modules/trajectory_integration_module.f
+//>> mex -r2018a C__002_test_wrappers/test_linInterpolate3D_fortran.c trajectory_integration_module.o -outdir FOR001_modules/
+//>> !del trajectory_integration.mod trajectory_integration_module.o
 
-int main(int argc, char *argv[])
+#include "mex.h"
+#include "matrix.h"
+#include "../C__001_wrappers/trajectory_integration_module.h"
+
+void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 {
-	double test_input[4][4][4];
-	for(int i = 0; i < 4; i++)
-	{
-		for(int j = 0; j < 4; j++)
-		{
-			for(int k = 0; k < 4; k++)
-			{
-				// +3 to offset the indexing of MATLAB and FORTRAN, which both start at 1.
-				test_input[i][j][k] = (double)((i + j + k + 3) * (i + j + k + 3));
-			}
-		}
-	}
+	mxDouble *potential = mxGetDoubles(prhs[0]);
+	const double x = mxGetScalar(prhs[1]);
+    const double y = mxGetScalar(prhs[2]);
+    const double z = mxGetScalar(prhs[3]);
+    const double d = mxGetScalar(prhs[4]);
 
-	const double x = 2.1;
-	const double y = 1.1;
-	const double z = 0.1;
-	const double d = 1.0;
+	double result = lininterpolate3D(potential, &x, &y, &z, &d);
 
-	double result = lininterpolate3D((double *)&test_input, &x, &y, &z, &d);
-	printf("%.3f\n", result);
-
-	return 0;
+    plhs[0] = mxCreateDoubleScalar(result);
 }

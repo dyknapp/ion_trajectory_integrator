@@ -7,8 +7,6 @@ C     ^^ IF YOU CHANGE IT HERE, YOU NEED TO CHANGE IT IN THE C FILE ALSO
 
       contains
 C     Function for linear interpolation on a 4x4x4 lattice
-C     Optimized specifically for this application:
-C           assumes that point is 2 <= q < 3
       function lininterpolate3D(matrix, xin, yin, zin, d_grid) 
      & bind(c, name = "lininterpolate3D")
       real(c_double), intent(in) :: xin, yin, zin, d_grid
@@ -19,26 +17,32 @@ C           assumes that point is 2 <= q < 3
       real(c_double) :: a, b, c, d, e, f, g, h
       real(c_double) :: cg, ad, eh, bf
       real(c_double) :: fx, xp
+      integer :: x_grid, y_grid, z_grid
 
 C     Correct to grid spacing
       x = xin / d_grid
       y = yin / d_grid
       z = zin / d_grid
 
+C     Grid coordinates
+      x_grid = FLOOR(x)
+      y_grid = FLOOR(y)
+      z_grid = FLOOR(z)
+
 C     Find the coordinate relative to the calculated index
-      x_rel = x - dble(2.0)
-      y_rel = y - dble(2.0)
-      z_rel = z - dble(2.0)
+      x_rel = x - x_grid
+      y_rel = y - y_grid
+      z_rel = z - z_grid
 
 C     Store 8 of the nearest gridpoints to interpolate between
-      a = matrix(2 + 4*(2 - 1) + 16*(2 - 1))
-      b = matrix(3 + 4*(2 - 1) + 16*(2 - 1))
-      c = matrix(2 + 4*(3 - 1) + 16*(2 - 1))
-      d = matrix(2 + 4*(2 - 1) + 16*(3 - 1))
-      e = matrix(3 + 4*(3 - 1) + 16*(2 - 1))
-      f = matrix(3 + 4*(2 - 1) + 16*(3 - 1))
-      g = matrix(2 + 4*(3 - 1) + 16*(3 - 1))
-      h = matrix(3 + 4*(3 - 1) + 16*(3 - 1))
+      a = matrix(x_grid     + 4*(y_grid - 1) + 16*(z_grid - 1))
+      b = matrix(x_grid + 1 + 4*(y_grid - 1) + 16*(z_grid - 1))
+      c = matrix(x_grid     + 4*(y_grid    ) + 16*(z_grid - 1))
+      d = matrix(x_grid     + 4*(y_grid - 1) + 16*(z_grid    ))
+      e = matrix(x_grid + 1 + 4*(y_grid    ) + 16*(z_grid - 1))
+      f = matrix(x_grid + 1 + 4*(y_grid - 1) + 16*(z_grid    ))
+      g = matrix(x_grid     + 4*(y_grid    ) + 16*(z_grid    ))
+      h = matrix(x_grid + 1 + 4*(y_grid    ) + 16*(z_grid    ))
 
 C     interpolate matrix along the gridlines
       cg = z_rel * g + (1 - z_rel) * c
@@ -179,9 +183,9 @@ C     Variable declarations:
 C     Dummy variables:
       real(c_double), intent(in) :: xx, yy, zz, vxx, vyy, vzz, m, q, din
       real(c_double), intent(in) :: maxdist, maxt
+      integer(c_int), intent(in) :: time_steps, n_electrodes
       real(c_double), dimension(time_steps, n_electrodes)
      &      , intent(in) :: voltages
-      integer(c_int), intent(in) :: time_steps, n_electrodes
       integer(c_int), dimension(3), intent(in) :: dimensions
       integer(c_int), intent(in),
      &      dimension(dimensions(1), dimensions(2), dimensions(3))

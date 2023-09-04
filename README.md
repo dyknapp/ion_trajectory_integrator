@@ -22,7 +22,7 @@ WINDOWS:
 
   MinGW-w64 should also be installed on windows.
 
-  gfortran should be added to PATH
+  gfortran and Intel Fortran Compiler Classic (ifort) should be added to PATH
 
   IMPORTANT: Mingw-w64 PATH MUST NOT HAVE ANY SPACES IN IT
 

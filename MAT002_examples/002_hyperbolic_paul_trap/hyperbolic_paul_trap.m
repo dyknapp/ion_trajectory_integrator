@@ -36,9 +36,9 @@ voltages = zeros([time_steps, length(electrode_names)]);
 
 
 % in Hz
-RF_frequency = 100.0 * 10.0^6;
+RF_frequency = 10.0 * 10.0^6;
 % in volts
-RF_amplitude = 1850.0;
+RF_amplitude = 100.0;
 endcap_voltage = 0.0;
 
 % RF electrode: 2
@@ -52,7 +52,7 @@ xx1 = d * double(dimensions(1)) / 2.0; % mm
 yy1 = d * double(dimensions(2)) / 2.0; % mm
 zz1 = d * double(dimensions(3)) / 2.0; % mm
 
-T = 1;
+T = 5;
 maxwell = @(v) maxwell_pdf(v, m, T);
 v = general_distribution(1, 1, 10000, maxwell) * 1.0e-3;
 theta = 2 * pi * rand();
@@ -83,13 +83,12 @@ ezs    =    ezs(1:its);
 
 elapsed_time = toc;
 fprintf("Simulation took %.3gs (%d it/s)\n", elapsed_time, round(its / elapsed_time));
-%% Plot result
 
+%% Plot result
 stacked_motion_plots(true, ts, x_traj, y_traj, z_traj, ...
     exs, eys, ezs, RF_frequency, RF_amplitude, start_time, elapsed_time)
 
 %% FFT analysis
-
 if((abs(ts(end) - end_time) < (end_time - start_time) * 1e-3) ...
         || (its == original_length))
     motion_fft(ts, z_traj, RF_frequency, RF_amplitude, 'z');
