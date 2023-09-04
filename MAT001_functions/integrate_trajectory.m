@@ -121,7 +121,7 @@ function  output = integrate_trajectory(xx, yy, zz, vxx, vyy, vzz, ...
         vz_list(end + 1) = v_z;
         ex_list(end + 1) = E_x;
         ey_list(end + 1) = E_y;
-        ey_list(end + 1) = E_z;
+        ez_list(end + 1) = E_z;
         t_list(end + 1) = t;
     end
     
