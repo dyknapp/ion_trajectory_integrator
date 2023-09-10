@@ -1,14 +1,17 @@
-% Basic example illustrating the operation of a hyperbolic paul trap
-% r0^2 = 2mm, z0^2 = 1mm
-% Trap is a solid of rotation with respect to the x axis
-% See ../001_linear_paul_trap/linear_paul_trap.m for substantive comments
-%
-%  dknapp,  1.9.2023: Wrote script
+%  dknapp,  8.9.2023: Wrote script
 
 %% Variables to set beforehand
-simion_path = "SIM001_data/001_linear_paul_trap";
-electrode_names = ["hyperbolic_trap.pa1.patxt", ...
-                   "hyperbolic_trap.pa2.patxt"
+simion_path = "SIM001_data/003_e_gun";
+electrode_names = ["full_gun.pa1.patxt", ...
+                   "full_gun.pa2.patxt", ...
+                   "full_gun.pa3.patxt", ...
+                   "full_gun.pa4.patxt", ...
+                   "full_gun.pa5.patxt", ...
+                   "full_gun.pa6.patxt", ...
+                   "full_gun.pa7.patxt", ...
+                   "full_gun.pa8.patxt", ...
+                   "full_gun.pa9.patxt", ...
+                   "full_gun.pa10.patxt", ...
                   ];
 start_line = 22;
 loadanyways = false;
@@ -22,7 +25,7 @@ end
 
 d = 0.1;                % mm
 start_time =  0.0;      % us
-end_time   =  5.0;      % us
+end_time   =  1.0;      % us
 m = 2.0;                % amu (e.g. 2.0 would be roughly correct for H2+)
 q = 1.0;                % atomic units
 
@@ -38,7 +41,7 @@ voltages = zeros([time_steps, length(electrode_names)]);
 % in Hz
 RF_frequency = 10.0 * 10.0^6;
 % in volts
-RF_amplitude = 10.0;
+RF_amplitude = 100.0;
 endcap_voltage = 0.0;
 
 % RF electrode: 2
