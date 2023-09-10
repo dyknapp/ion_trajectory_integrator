@@ -38,7 +38,7 @@ voltages = zeros([time_steps, length(electrode_names)]);
 % in Hz
 RF_frequency = 10.0 * 10.0^6;
 % in volts
-RF_amplitude = 100.0;
+RF_amplitude = 10.0;
 endcap_voltage = 0.0;
 
 % RF electrode: 2
