@@ -48,9 +48,9 @@ voltages(:, rf_electrode) = RF_amplitude * ...
 voltages(:, rf_electrode) = voltages(:, rf_electrode) + endcap_voltage;
 
 %% Initializing
-xx1 = d * double(dimensions(1)) / 2.0; % mm
-yy1 = d * double(dimensions(2)) / 2.0; % mm
-zz1 = d * double(dimensions(3)) / 2.0; % mm
+xx1 = d * double(dimensions(1) - 1) / 2.0; % mm
+yy1 = d * double(dimensions(2) - 1) / 2.0; % mm
+zz1 = d * double(dimensions(3) - 1) / 2.0; % mm
 
 T = 5;
 maxwell = @(v) maxwell_pdf(v, m, T);
