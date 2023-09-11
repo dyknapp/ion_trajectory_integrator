@@ -171,6 +171,26 @@ C     Correct the coordinates' offset and compute the E field
       call potEfunc(potential, tx, ty, tz, d, ex, ey, ez)
       end subroutine
 
+      function is_dead(dimensions, is_electrode, x, y, z, d)
+      integer(c_int), dimension(3), intent(in) :: dimensions
+      integer(c_int), intent(in),
+     &      dimension(dimensions(1), dimensions(2), dimensions(3))
+     &      :: is_electrode
+      real(c_double), intent(in) :: x, y, z, d
+      logical :: is_dead
+            if ((x < 2 * d) .or. (y < 2 * d) .or. (z < 2 * d)
+     &            .or. (x > (dimensions(1) - 2) * d)
+     &            .or. (y > (dimensions(2) - 2) * d)
+     &            .or. (z > (dimensions(3) - 2) * d)) then
+                  is_dead = .true.
+            else if (is_electrode(NINT(x/d), NINT(y/d), NINT(z/d)) == 1)
+     &       then
+                  is_dead = .true.
+            else
+                  is_dead = .false.
+            end if
+      end function
+
 
 C     Subroutine for Verlet integration of ion trajectory.
       subroutine integrate_trajectory(xx, yy, zz, vxx, vyy, vzz,
@@ -202,11 +222,11 @@ C     Dummy variables:
      &      :: x_traj, y_traj, z_traj, ts, exs, eys, ezs
       real(c_double), intent(out) :: its
       integer :: idx, iter
+      logical :: dead
 
 
 C     Unit conversions.  For simplicity, we work with SI units within 
 C           this function.
-
       x = xx * 1.0e-3
       y = yy * 1.0e-3
       z = zz * 1.0e-3                           ! mm -> m
@@ -231,14 +251,19 @@ C     Charge-to-mass ratio
 
 C     Main loop of integration
       iter = 0
+C     Check if particle is alive
+      dead = is_dead(dimensions, is_electrode, x, y, z, d)
+      if (dead) then
+            t = mt;
+      end if
       do while ((t < mt) .and. (iter < MAX_TRAJECTORY_POINTS))
             iter = iter + 1
 
 C           Record current state before it gets modified by the 
 C                 integration step
-            x_traj(iter) = x * 1.0e+3
-            y_traj(iter) = y * 1.0e+3
-            z_traj(iter) = z* 1.0e+3
+            x_traj(iter) = x  * 1.0e+3
+            y_traj(iter) = y  * 1.0e+3
+            z_traj(iter) = z  * 1.0e+3
             exs(iter)    = ex * 1.0e-3
             eys(iter)    = ey * 1.0e-3
             ezs(iter)    = ez * 1.0e-3
@@ -267,14 +292,9 @@ C           Integration step
      &            ex_new, ey_new, ez_new)
 
 C           Check if particle is alive
-            if ((x < 2 * d) .or. (y < 2 * d) .or. (z < 2 * d)
-     &            .or. (x > (dimensions(1) - 2) * d)
-     &            .or. (y > (dimensions(2) - 2) * d)
-     &            .or. (z > (dimensions(3) - 2) * d)) then
-                  t = maxt
-            else if (is_electrode(NINT(x/d), NINT(y/d), NINT(z/d)) == 1)
-     &       then
-                  t = maxt
+            dead = is_dead(dimensions, is_electrode, x, y, z, d)
+            if (dead) then
+                  t = mt;
             end if
 
             vx = vx + tstep * (ex_new + ex) * cmr / 2
@@ -283,7 +303,6 @@ C           Check if particle is alive
             ex = ex_new
             ey = ey_new
             ez = ez_new
-
       end do
       its = dble(iter)
       end subroutine
