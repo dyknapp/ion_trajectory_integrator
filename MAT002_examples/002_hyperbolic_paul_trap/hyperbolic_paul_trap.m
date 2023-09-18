@@ -6,7 +6,7 @@
 %  dknapp,  1.9.2023: Wrote script
 
 %% Variables to set beforehand
-simion_path = "SIM001_data/001_linear_paul_trap";
+simion_path = "SIM001_data/002_hyperbolic_paul_trap";
 electrode_names = ["hyperbolic_trap.pa1.patxt", ...
                    "hyperbolic_trap.pa2.patxt"
                   ];
@@ -22,7 +22,7 @@ end
 
 d = 0.1;                % mm
 start_time =  0.0;      % us
-end_time   =  5.0;      % us
+end_time   =  50.0;     % us
 m = 2.0;                % amu (e.g. 2.0 would be roughly correct for H2+)
 q = 1.0;                % atomic units
 
@@ -38,7 +38,7 @@ voltages = zeros([time_steps, length(electrode_names)]);
 % in Hz
 RF_frequency = 10.0 * 10.0^6;
 % in volts
-RF_amplitude = 10.0;
+RF_amplitude = -8.2;
 endcap_voltage = 0.0;
 
 % RF electrode: 2

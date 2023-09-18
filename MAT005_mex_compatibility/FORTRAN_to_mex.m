@@ -25,4 +25,5 @@ elseif ispc     % For windows
     mex -r2018a C__001_wrappers/trajectory_integration_module.c FOR001_modules/tim.o -outdir FOR001_modules
     % Remove extra files
     !del FOR001_modules\tim.o
+    !del trajectory_integration.mod
 end

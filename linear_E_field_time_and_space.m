@@ -9,7 +9,7 @@ end_time   =  100.0;    % us
 m = 2.0;                % amu (e.g. 2.0 would be roughly correct for H2+)
 q = 1.0;                % atomic units
 
-maxdist =  1.0e-3;    % mm
+maxdist =  1.0e-6;    % mm
 
 %% Create the potential.
 %  d = 1.0, so 1mm/gu
@@ -28,14 +28,16 @@ for z = 1:dimensions(3)
 end
 
 %% Electrode voltages.
-time_steps_per_us = 1;
+time_steps_per_us = 1000;
 time_steps = round((end_time - start_time) * time_steps_per_us);
 step_times = linspace(start_time, end_time + ((end_time - start_time) / 100), time_steps);
 voltages = zeros([time_steps, 2]);
 
-for i = 1:time_steps
-    voltages(i,1) = -1.0;
-    voltages(i,2) =  1.0;
+idx = 0
+for t = step_times
+    idx = idx + 1;
+    voltages(idx,1) = -1.0 * t;
+    voltages(idx,2) =  1.0 * t;
 end
 
 %% Initializing
@@ -75,6 +77,6 @@ fprintf("Simulation took:                       %.3g s (%d it/s)\n", elapsed_tim
 fprintf("Mean timestep:                         %.8f us\n", (ts(end) / double(its)));
 fprintf("Time of last data point recorded:      %.8f   us\n", ts(end));
 fprintf("Theory prediction:                     %.8f   us\n", ...
-    1.0e+6 * sqrt((2 * (1.0e-3) * (z_traj(end) - zz1 * d) * 1.660539067e-27 * m) / (q * 1.602176634e-19 * 1000 * field_strength)))
+    1.0e+6 * ((6 * (1.0e-3) * (z_traj(end) - zz1 * d) * 1.660539067e-27 * m) / (q * 1.602176634e-19 * 1000 * 1.0e+6 * field_strength))^(1.0/3.0))
 
 
