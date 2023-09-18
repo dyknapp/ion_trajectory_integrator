@@ -158,7 +158,7 @@ C     Cut out a 4x4x4 area of the potential maps and compute linear sum
                               potential(ix, iy, iz) =
      &                                             potential(ix, iy, iz)
      &                                     + (interpolated_voltages(idx)
-     &     * potential_maps(idx, cx + ix - 2, cy + iy - 2, cz + iz - 2))
+     &     * potential_maps(idx, cx + ix - 1, cy + iy - 1, cz + iz - 1))
                         end do
                   end do
             end do

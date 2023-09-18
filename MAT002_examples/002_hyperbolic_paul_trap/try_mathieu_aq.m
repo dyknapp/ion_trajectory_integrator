@@ -1,6 +1,6 @@
 function output = ...
-    try_mathieu_aq(a, q, m, RF_frequency, T, end_time, maxdist, ...
-    initialize, xx1, yy1, zz1, vxx1, vyy1, vzz1)
+    try_mathieu_aq(a, q, m, RF_frequency, end_time, maxdist, ...
+    vxx1, vyy1, vzz1)
     
     % a and q parameters
     r0 = 1.0e-3;
@@ -10,18 +10,7 @@ function output = ...
     endcap_voltage =  a * (((1.660539067e-27) * m) * omega^2 * r0^2) / (2 * e);
     RF_amplitude   = -q * (((1.660539067e-27) * m) * omega^2 * r0^2) / (    e);
 
-    fprintf("RF frequency = %.1f MHz\n" + ...
-            "RF amplitude = %.1f V\n" + ...
-            "Endcap volts = %.1f V\n" + ...
-            "a            = %.3g\n" + ...
-            "q            = %.3g\n", ...
-            RF_frequency / 1.0e+6, ...
-            RF_amplitude, ...
-            endcap_voltage, ...
-            a, q);
-
-    % Variables to set beforehand
-    simion_path = "SIM001_data/001_linear_paul_trap";
+    simion_path = "SIM001_data/002_hyperbolic_paul_trap";
     electrode_names = ["hyperbolic_trap.pa1.patxt", ...
                        "hyperbolic_trap.pa2.patxt"
                       ];
@@ -34,41 +23,35 @@ function output = ...
         potential_maps = potential_maps / 10000.0;
         is_electrode = logical(is_electrode);
     end
+
+    d = 0.1;
     
-    d = 0.1;                % mm
-    start_time =  0.0;      % us
-    m = 2.0;                % amu (e.g. 2.0 would be roughly correct for H2+)
-    q = 1.0;                % atomic units
-    
-    
+    xx1 = d * double(dimensions(1) - 1) / 2;
+    yy1 = d * double(dimensions(2) - 1) / 2;
+    zz1 = d * double(dimensions(3) - 1) / 2;
+
     % RF and endcap electrode voltages.
     time_steps_per_us = 1000;
-    time_steps = round((end_time - start_time) * time_steps_per_us);
-    step_times = linspace(start_time, end_time + ((end_time - start_time) / 100), time_steps);
+    time_steps = round((end_time - 0.0) * time_steps_per_us);
+    step_times = linspace(0.0, end_time + ((end_time - 0.0) / 100), time_steps);
     voltages = zeros([time_steps, length(electrode_names)]);
-    
     
     % RF electrode: 2
     rf_electrode = 2;
     voltages(:, rf_electrode) = RF_amplitude * ...
         cos(2 * pi * step_times * RF_frequency / 10.0^6);
     voltages(:, rf_electrode) = voltages(:, rf_electrode) + endcap_voltage;
-    
-    if ~initialize
-        xx1 = d * double(dimensions(1)) / 2.0; % mm
-        yy1 = d * double(dimensions(2)) / 2.0; % mm
-        zz1 = d * double(dimensions(3)) / 2.0; % mm
-    
-        maxwell = @(v) maxwell_pdf(v, m, T);
-        v = general_distribution(1, 1, 10000, maxwell) * 1.0e-3;
-        theta = 2 * pi * rand();
-        phi = 2 * pi * rand();
-        vxx1 = v * sin(theta) * cos(phi);      % mm / us
-        vyy1 = v * sin(theta) * sin(phi);      % mm / us
-        vzz1 = v * cos(theta);                 % mm / us
-    end
 
     % Simulation
+    fprintf("RF frequency = %.1f MHz\n" + ...
+            "RF amplitude = %.1f V\n" + ...
+            "DC offset    = %.1f V\n" + ...
+            "a_r          = %.3g\n" + ...
+            "q_r          = %.3g\n", ...
+            RF_frequency / 1.0e+6, ...
+            RF_amplitude, ...
+            endcap_voltage, ...
+            a, q);
     tic
     potential_maps_size = size(potential_maps);
     potential_maps = reshape(potential_maps, [potential_maps_size(1), dimensions]);
@@ -80,10 +63,9 @@ function output = ...
     output.elapsed_time = toc;
 
     output.its = int32(its);
-    original_length = length(ts);
-    output.x_traj = x_traj(1:its);
-    output.y_traj = y_traj(1:its);
-    output.z_traj = z_traj(1:its);
+    output.x_traj = x_traj(1:its) - xx1;
+    output.y_traj = y_traj(1:its) - yy1;
+    output.z_traj = z_traj(1:its) - zz1 + 0.01;
     output.ts     =     ts(1:its);
     output.exs    =    exs(1:its);
     output.eys    =    eys(1:its);
