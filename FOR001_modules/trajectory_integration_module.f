@@ -150,7 +150,7 @@ C     Initialize potential array
 C     Cut out a 4x4x4 area of the potential maps and compute linear sum
       cx = FLOOR(x / d)
       cy = FLOOR(y / d)
-      cz = FLOOR(z / d)     ! Center coordinates
+      cz = FLOOR(z / d)             ! Center coordinates
       do idx = 1, n_electrodes      ! Array slicing:
             do ix = 1, 4
                   do iy = 1, 4
@@ -158,16 +158,16 @@ C     Cut out a 4x4x4 area of the potential maps and compute linear sum
                               potential(ix, iy, iz) =
      &                                             potential(ix, iy, iz)
      &                                     + (interpolated_voltages(idx)
-     &     * potential_maps(idx, cx + ix - 1, cy + iy - 1, cz + iz - 1))
+     &     * potential_maps(idx, cx + ix - 2, cy + iy - 2, cz + iz - 2))
                         end do
                   end do
             end do
       end do
 
 C     Correct the coordinates' offset and compute the E field
-      tx = (2 + (x / d) - cx) * d
-      ty = (2 + (y / d) - cy) * d
-      tz = (2 + (z / d) - cz) * d
+      tx = 2*d + x - cx*d
+      ty = 2*d + y - cy*d
+      tz = 2*d + z - cz*d
       call potEfunc(potential, tx, ty, tz, d, ex, ey, ez)
       end subroutine
 

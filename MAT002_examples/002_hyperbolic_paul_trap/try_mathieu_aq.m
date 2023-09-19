@@ -1,14 +1,13 @@
 function output = ...
-    try_mathieu_aq(a, q, m, RF_frequency, end_time, maxdist, ...
-    vxx1, vyy1, vzz1)
+    try_mathieu_aq(a, q, m, RF_frequency, end_time, maxdist, y1, vyy1)
     
     % a and q parameters
     r0 = 1.0e-3;
     e  = 1.602176634e-19;
     
     omega = RF_frequency * (2 * pi);
-    endcap_voltage =  a * (((1.660539067e-27) * m) * omega^2 * r0^2) / (2 * e);
-    RF_amplitude   = -q * (((1.660539067e-27) * m) * omega^2 * r0^2) / (    e);
+    endcap_voltage =  4 * a * (((1.660539067e-27) * m) * omega^2 * r0^2) / e;
+    RF_amplitude   = -8 * q * (((1.660539067e-27) * m) * omega^2 * r0^2) / e;
 
     simion_path = "SIM001_data/002_hyperbolic_paul_trap";
     electrode_names = ["hyperbolic_trap.pa1.patxt", ...
@@ -26,9 +25,12 @@ function output = ...
 
     d = 0.1;
     
-    xx1 = d * double(dimensions(1) - 1) / 2;
-    yy1 = d * double(dimensions(2) - 1) / 2;
-    zz1 = d * double(dimensions(3) - 1) / 2;
+    xx1 =      d * double(dimensions(1) + 1) / 2;
+    yy1 =      d * double(dimensions(2) + 1) / 2;
+    zz1 =      d * double(dimensions(3) + 1) / 2;
+
+    vxx1 = 0.0;
+    vzz1 = 0.0;
 
     % RF and endcap electrode voltages.
     time_steps_per_us = 1000;
@@ -56,7 +58,7 @@ function output = ...
     potential_maps_size = size(potential_maps);
     potential_maps = reshape(potential_maps, [potential_maps_size(1), dimensions]);
     [x_traj, y_traj, z_traj, ts, exs, eys, ezs, its] ...
-        = trajectory_integration_module(xx1, yy1, zz1, vxx1, vyy1, vzz1, ...
+        = trajectory_integration_module(xx1, y1 + yy1, zz1, vxx1, vyy1, vzz1, ...
                           potential_maps, voltages, step_times, ...
                           time_steps, dimensions, int32(is_electrode), ...
                           length(electrode_names), m, q, d, maxdist, end_time);
@@ -65,7 +67,7 @@ function output = ...
     output.its = int32(its);
     output.x_traj = x_traj(1:its) - xx1;
     output.y_traj = y_traj(1:its) - yy1;
-    output.z_traj = z_traj(1:its) - zz1 + 0.01;
+    output.z_traj = z_traj(1:its) - zz1;
     output.ts     =     ts(1:its);
     output.exs    =    exs(1:its);
     output.eys    =    eys(1:its);

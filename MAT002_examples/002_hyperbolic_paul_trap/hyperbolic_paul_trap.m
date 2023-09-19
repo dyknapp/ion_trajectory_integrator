@@ -44,7 +44,7 @@ endcap_voltage = 0.0;
 % RF electrode: 2
 rf_electrode = 2;
 voltages(:, rf_electrode) = RF_amplitude * ...
-    cos(2 * pi * step_times * RF_frequency / 10.0^6);
+    sin(2 * pi * step_times * RF_frequency / 10.0^6);
 voltages(:, rf_electrode) = voltages(:, rf_electrode) + endcap_voltage;
 
 %% Initializing
