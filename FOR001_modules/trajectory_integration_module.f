@@ -275,9 +275,10 @@ C           Integration timestep calculation
 
             a = a + 1.0e-15
             v = v + 1.0e-15
-            tv = mdist / v;
+            tv = mdist / v
             ta = SQRT(2.0 * mdist / a)
             tstep = tv * ta / (tv + ta)
+            tstep = MIN(tstep, mt * 1.0e-3)
             t = t + tstep
 
 C           Integration step
