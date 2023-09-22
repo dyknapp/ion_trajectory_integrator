@@ -1,7 +1,30 @@
+
+electrode_names = ["comparison_pa.pa1.patxt", ...
+                   "comparison_pa.pa2.patxt"
+                  ];
+start_line = 19;
+loadanyways = false;
+[potential_maps, is_electrode, dimensions] = ...
+    readFile(electrode_names, start_line);
+potential_maps = potential_maps / 10000.0;
+is_electrode = logical(is_electrode);
+
+map = potential_maps(1, :) - potential_maps(2, :);
+
+map = reshape(map, [1024 1024])';
+
+imagesc(map)
+set(gca,'YDir','normal')
+drawnow;
+
+%%
+
+figure
+
 start = 5;
-final = 13;
+final = 10;
 final_accuracy = 10.0;
-d_final = 0.0;
+d_final = 0.1;
 
 d_start = d_final * 2.0^(final - start);
 
@@ -32,14 +55,21 @@ for res_exp = start:final
             %         boundary_conditions(r, z) = -10.0;
             %     end
             % end
-            if (r - 14.0 * double(dimensions(1)) / 29.0)^2.0 ...
-                    + (z - 14.0 * double(dimensions(1)) / 29.0)^2.0 ...
-                        < double(dimensions(1)) / 32
-                boundary_conditions(r, z) = 1.0;
-            elseif (r - 15.0 * double(dimensions(1)) / 29.0)^2.0 ...
-                    + (z - 15.0 * double(dimensions(1)) / 29.0)^2.0 ...
-                        < double(dimensions(1)) / 32
-                boundary_conditions(r, z) = -1.0;
+            % if (r - 14.0 * double(dimensions(1)) / 29.0)^2.0 ...
+            %         + (z - 14.0 * double(dimensions(1)) / 29.0)^2.0 ...
+            %             < double(dimensions(1)) / 32
+            %     boundary_conditions(r, z) = 1.0;
+            % elseif (r - 15.0 * double(dimensions(1)) / 29.0)^2.0 ...
+            %         + (z - 15.0 * double(dimensions(1)) / 29.0)^2.0 ...
+            %             < double(dimensions(1)) / 32
+            %     boundary_conditions(r, z) = -1.0;
+            % end
+            if z >= round(double(dimensions(2)) / 8.0) && z <= round(7.0 * double(dimensions(2)) / 8.0)
+                if r == round(double(dimensions(1)) / 8.0)
+                    boundary_conditions(r, z) =  1.0;
+                elseif r == round(2.0 * double(dimensions(1)) / 8.0)
+                    boundary_conditions(r, z) = -1.0;
+                end
             end
         end
     end
@@ -86,7 +116,7 @@ function solved = solve_laplace(d, potential_array, boundary_conditions, accurac
     last_change = 0.0;
     i = 0;
     while (last_change - change) / (dimensions(1) * dimensions(2)) > 10.0^(-accuracy) ...
-            || i < 256 %min([i < 1 * max(dimensions), 256])
+            || i < 64 %min([i < 1 * max(dimensions), 256])
         i = i + 1;
         last_change = change;
         change = 0.0;
