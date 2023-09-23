@@ -23,6 +23,7 @@ elseif ispc     % For windows
     !ifort /fpp /c /dll /O3 /Qopenmp /Qparallel .\FOR001_modules\trajectory_integration_module.f -o .\FOR001_modules\tim.o
     % Compile C wrapper to mex
     mex -r2018a C__001_wrappers/trajectory_integration_module.c FOR001_modules/tim.o -outdir FOR001_modules
+    mex -r2018a C__001_wrappers/ensemble_trajectory_integration_module.c FOR001_modules/tim.o -outdir FOR001_modules
     % Remove extra files
     !del FOR001_modules\tim.o
     !del trajectory_integration.mod

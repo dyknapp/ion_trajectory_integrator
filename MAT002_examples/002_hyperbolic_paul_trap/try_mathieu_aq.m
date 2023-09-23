@@ -6,8 +6,8 @@ function output = ...
     e  = 1.602176634e-19;
     
     omega = RF_frequency * (2 * pi);
-    endcap_voltage = -0.5 * am * (((1.660539067e-27) * m) * omega^2 * r0^2) / e;
-    RF_amplitude   =        qm * (((1.660539067e-27) * m) * omega^2 * r0^2) / e;
+    endcap_voltage = 0.5 * am * (((1.660539067e-27) * m) * omega^2 * r0^2) / e;
+    RF_amplitude   =       qm * (((1.660539067e-27) * m) * omega^2 * r0^2) / e;
 
     simion_path = "SIM001_data/002_hyperbolic_paul_trap";
     electrode_names = ["hyperbolic_trap.pa1.patxt", ...
