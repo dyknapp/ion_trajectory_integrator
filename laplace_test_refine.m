@@ -1,4 +1,4 @@
-
+close all
 electrode_names = ["comparison_pa.pa1.patxt", ...
                    "comparison_pa.pa2.patxt"
                   ];
@@ -21,10 +21,10 @@ drawnow;
 
 figure
 
-start = 5;
+start = 4;
 final = 10;
-final_accuracy = 10.0;
-d_final = 0.1;
+final_accuracy = 8.0;
+d_final = 0.1682;
 
 d_start = d_final * 2.0^(final - start);
 
@@ -101,6 +101,10 @@ potential_array = solve_laplace(d_final, potential_array, boundary_conditions, f
 imagesc(potential_array)
 set(gca,'YDir','normal')
 
+figure
+imagesc(abs(map - potential_array))
+title(sum(abs(map(:) - potential_array(:))) / (1024 * 1024))
+
 %%
 function solved = solve_laplace(d, potential_array, boundary_conditions, accuracy)
     dimensions = size(potential_array);
@@ -120,15 +124,31 @@ function solved = solve_laplace(d, potential_array, boundary_conditions, accurac
         i = i + 1;
         last_change = change;
         change = 0.0;
-        for r = 1:dimensions(1)
+        for r = 2:(dimensions(1) - 1)
             potential_array(r, end) = potential_array(r, end - 1);
             potential_array(r, 1) = potential_array(r, 2);
         end
-        for z = 1:dimensions(2)
+        for z = 2:(dimensions(2) - 1)
             potential_array(end, z) = potential_array(end - 1, z);
+            potential_array(1, z) = potential_array(2, z);
         end
         for z = 2:dimensions(2) - 1
             for r = 2:dimensions(1) - 1
+                % Non-boundaries
+                if boundary_conditions(r, z) == 0.0
+                    prev = potential_array(r, z);
+                    potential_array(r, z) = (1 / 4.0) * ( ...
+                         (d / (2.0 * r)) * (potential_array(r + 1, z) - potential_array(r - 1, z)) ...
+                       + (potential_array(r + 1, z) + potential_array(r - 1, z)) ...
+                       + (potential_array(r, z + 1) + potential_array(r, z - 1)));
+                    change = change + abs(potential_array(r, z) - prev);
+                end
+                potential_array(1, z) = (1 / 4.0) * (2 * potential_array(2, z) ...
+                       + potential_array(1, z + 1) + potential_array(1, z - 1));
+            end
+        end
+        for z = (dimensions(2) - 1):-1:2
+            for r = (dimensions(1) - 1):-1:2
                 % Non-boundaries
                 if boundary_conditions(r, z) == 0.0
                     prev = potential_array(r, z);

@@ -1,11 +1,12 @@
 #define MAX_TRAJECTORY_POINTS 1048576
-C     ^^ IF YOU CHANGE IT HERE, YOU NEED TO CHANGE IT IN THE C FILE ALSO
+C     ^^ IF YOU CHANGE IT HERE, YOU NEED TO CHANGE IT IN THE OTHER FILES
 
       module trajectory_integration
       use iso_c_binding, only: c_int, c_double
       implicit none
 
       contains
+
 C     Function for linear interpolation on a 4x4x4 lattice
       function lininterpolate3D(matrix, xin, yin, zin, d_grid) 
      & bind(c, name = "lininterpolate3D")
@@ -215,12 +216,14 @@ C     Dummy variables:
      &      dimensions(2), dimensions(3)), 
      &      intent(in) :: potential_maps
       real(c_double), dimension(time_steps), intent(in) :: step_times_in
-      real(c_double), dimension(time_steps) :: step_times
-      real(c_double) :: x, y, z, vx, vy, vz, t, mdist, mt, cmr,
-     &      a, v, tv, ta, tstep, ex, ey, ez, ex_new, ey_new, ez_new, d
       real(c_double), dimension(MAX_TRAJECTORY_POINTS), intent(out)
      &      :: x_traj, y_traj, z_traj, ts, exs, eys, ezs
       real(c_double), intent(out) :: its
+
+C     Local variables
+      real(c_double), dimension(time_steps) :: step_times
+      real(c_double) :: x, y, z, vx, vy, vz, t, mdist, mt, cmr,
+     &      a, v, tv, ta, tstep, ex, ey, ez, ex_new, ey_new, ez_new, d
       integer :: idx, iter
       logical :: dead
 
@@ -307,4 +310,90 @@ C           Check if particle is alive
       end do
       its = dble(iter)
       end subroutine
+
+      subroutine fly_ensemble(particles, xs,ys,zs,vxs,vys,vzs,
+     &                        potential_maps, voltages, step_times_in,
+     &                        time_steps, dimensions, is_electrode,
+     &                        n_electrodes, m, q, din, maxdist, maxt,
+     &                        x_trajs, y_trajs, z_trajs, 
+     &                        tss, exss, eyss, ezss, itss)
+     & bind(c, name = "fly_ensemble")
+C     Local variables:
+      real(c_double), dimension(MAX_TRAJECTORY_POINTS)
+     &      :: x_traj, y_traj, z_traj, ts, exs, eys, ezs
+      integer :: i, j
+      real(c_double) :: its
+
+C     Variable declarations:
+C     Dummy variables:
+      integer(c_int), intent(in) :: particles!, interps
+
+      real(c_double), dimension(particles), intent(in) 
+     &      :: xs, ys, zs, vxs, vys, vzs
+
+      real(c_double), intent(in) :: m, q, din
+
+      real(c_double), intent(in) :: maxdist, maxt
+     
+      integer(c_int), intent(in) :: time_steps, n_electrodes
+
+      real(c_double), dimension(time_steps, n_electrodes), intent(in) 
+     &      :: voltages
+
+      integer(c_int), dimension(3), intent(in) :: dimensions
+
+      integer(c_int), intent(in),
+     &      dimension(dimensions(1), dimensions(2), dimensions(3))
+     &      :: is_electrode
+
+      real(c_double), 
+     &      dimension(n_electrodes, dimensions(1), 
+     &      dimensions(2), dimensions(3)), intent(in) 
+     &      :: potential_maps
+
+      real(c_double), dimension(time_steps), intent(in) 
+     &      :: step_times_in
+
+      real(c_double), dimension(particles, MAX_TRAJECTORY_POINTS), 
+     &      intent(out) :: x_trajs,y_trajs,z_trajs,tss,exss,eyss,ezss
+
+      real(c_double), dimension(particles),
+     &      intent(out) :: itss
+
+C     Allocate the output variables
+      !interps = MAX_TRAJECTORY_POINTS ! For now, no interpolation
+C       allocate(x_trajs(particles, MAX_TRAJECTORY_POINTS))
+C       allocate(y_trajs(particles, MAX_TRAJECTORY_POINTS))
+C       allocate(z_trajs(particles, MAX_TRAJECTORY_POINTS))
+C       allocate(tss(particles, MAX_TRAJECTORY_POINTS))
+C       allocate(exss(particles, MAX_TRAJECTORY_POINTS))
+C       allocate(eyss(particles, MAX_TRAJECTORY_POINTS))
+C       allocate(ezss(particles, MAX_TRAJECTORY_POINTS))
+C       allocate(itss(particles))
+
+C     Run the trajectory simulations
+      !$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i, j)
+      do i = 1,particles
+            call integrate_trajectory(xs(i), ys(i), zs(i), 
+     &                          vxs(i), vys(i), vzs(i),
+     &                          potential_maps, voltages, step_times_in,
+     &                          time_steps, dimensions, is_electrode,
+     &                          n_electrodes, m, q, din, maxdist, maxt,
+     &                          x_traj,y_traj,z_traj,ts,exs,eys,ezs,its)
+            do j = 1,NINT(its)
+                  x_trajs(i, j) = x_traj(j)
+                  y_trajs(i, j) = y_traj(j)
+                  z_trajs(i, j) = z_traj(j)
+                  tss(i, j)     = ts(j)
+                  exss(i, j)    = exs(j)
+                  eyss(i, j)    = eys(j)
+                  ezss(i, j)    = ezs(j)
+            end do
+            itss(i) = its
+            continue
+      end do
+      !$OMP END PARALLEL DO
+
+      end subroutine
+
       end module
