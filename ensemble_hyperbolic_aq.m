@@ -1,7 +1,7 @@
 am = 0.0;
 qm = 0.25;
 RF_frequency = 10.0e+6;
-particles = 512;
+particles = 32;
 m = 1.0;
 q = 1.0;
 end_time = 10.0;
