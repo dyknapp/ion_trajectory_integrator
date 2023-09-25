@@ -372,7 +372,7 @@ C       allocate(ezss(particles, MAX_TRAJECTORY_POINTS))
 C       allocate(itss(particles))
 
 C     Run the trajectory simulations
-      !$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i, j)
+      !$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,j) SCHEDULE(STATIC,16)
       do i = 1,particles
             call integrate_trajectory(xs(i), ys(i), zs(i), 
      &                          vxs(i), vys(i), vzs(i),
