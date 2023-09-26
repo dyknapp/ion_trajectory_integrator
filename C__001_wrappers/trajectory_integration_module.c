@@ -66,10 +66,12 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
       double *ezs = mxGetPr(plhs[6]);
       double its;
 
+      mexPrintf("Calling FORTRAN code.\n");
       integrate_trajectory(&xx, &yy, &zz, &vxx, &vyy, &vzz, \
                            potential_maps, voltages, step_times_in, \
                            &time_steps, dimensions, is_electrode, \
                            &n_electrodes, &m, &q, &din, &maxdist, &maxt, \
                            x_traj, y_traj, z_traj, ts, exs, eys, ezs, &its);
+      mexPrintf("FORTRAN exited successfully.\n");
       plhs[7] = mxCreateDoubleScalar(its);
 }

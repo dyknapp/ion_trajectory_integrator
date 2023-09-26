@@ -26,11 +26,11 @@ elseif ispc     % For windows
     !ifort /fpp /c /dll /O3 /Qopenmp /Qparallel .\FOR001_modules\potential_calculation.f         -o .\FOR001_modules\pc.o
     % Compile C wrapper to mex
     mex -r2018a C__001_wrappers/trajectory_integration_module.c          FOR001_modules/tim.o -outdir FOR001_modules
-    mex -r2018a C__001_wrappers/ensemble_trajectory_integration_module.c FOR001_modules/tim.o -outdir FOR001_modules
-    mex -r2018a C__001_wrappers/iterate_laplace.c                        FOR001_modules/pc.o -outdir FOR001_modules
-    mex -r2018a C__001_wrappers/nn_interpolate.c                         FOR001_modules/pc.o -outdir FOR001_modules
-    mex -r2018a C__001_wrappers/nn_interpolate2D.c                       FOR001_modules/pc.o -outdir FOR001_modules
-    mex -r2018a C__001_wrappers/refined_laplace.c                        FOR001_modules/pc.o -outdir FOR001_modules
+    % mex -r2018a C__001_wrappers/ensemble_trajectory_integration_module.c FOR001_modules/tim.o -outdir FOR001_modules
+    % mex -r2018a C__001_wrappers/iterate_laplace.c                        FOR001_modules/pc.o -outdir FOR001_modules
+    % mex -r2018a C__001_wrappers/nn_interpolate.c                         FOR001_modules/pc.o -outdir FOR001_modules
+    % mex -r2018a C__001_wrappers/nn_interpolate2D.c                       FOR001_modules/pc.o -outdir FOR001_modules
+    % mex -r2018a C__001_wrappers/refined_laplace.c                        FOR001_modules/pc.o -outdir FOR001_modules
     % Remove extra files
     !del FOR001_modules\tim.o
     !del FOR001_modules\pc.o
