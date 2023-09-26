@@ -228,87 +228,87 @@ C     Local variables
       logical :: dead
 
 
-C     Unit conversions.  For simplicity, we work with SI units within 
-C           this function.
-      x = xx * 1.0e-3
-      y = yy * 1.0e-3
-      z = zz * 1.0e-3                           ! mm -> m
-      vx = vxx * 1.0e+3
-      vy = vyy * 1.0e+3
-      vz = vzz * 1.0e+3                         ! mm/us -> m/s
-      do idx = 1, time_steps
-            step_times(idx) = step_times_in(idx) * 1.0e-6
-      end do
-      t = step_times(1)                         ! us -> s
-      d = din * 1e-3                            ! mm -> m
-      mdist = maxdist * 1.0e-3
-      mt = maxt * 1.0e-6                        ! us -> s
+C C     Unit conversions.  For simplicity, we work with SI units within 
+C C           this function.
+C       x = xx * 1.0e-3
+C       y = yy * 1.0e-3
+C       z = zz * 1.0e-3                           ! mm -> m
+C       vx = vxx * 1.0e+3
+C       vy = vyy * 1.0e+3
+C       vz = vzz * 1.0e+3                         ! mm/us -> m/s
+C       do idx = 1, time_steps
+C             step_times(idx) = step_times_in(idx) * 1.0e-6
+C       end do
+C       t = step_times(1)                         ! us -> s
+C       d = din * 1e-3                            ! mm -> m
+C       mdist = maxdist * 1.0e-3
+C       mt = maxt * 1.0e-6                        ! us -> s
 
-C     Charge-to-mass ratio
-      cmr = ((1.602176634e-19) * q) / ((1.660539067e-27) * m);
+C C     Charge-to-mass ratio
+C       cmr = ((1.602176634e-19) * q) / ((1.660539067e-27) * m);
 
-      call field_at(t, voltages, step_times, 
-     &       n_electrodes, time_steps,
-     &       x, y, z, d, potential_maps, dimensions,
-     &       ex, ey, ez)    
+C       call field_at(t, voltages, step_times, 
+C      &       n_electrodes, time_steps,
+C      &       x, y, z, d, potential_maps, dimensions,
+C      &       ex, ey, ez)    
 
-C     Main loop of integration
-      iter = 0
-C     Check if particle is alive
-      dead = is_dead(dimensions, is_electrode, x, y, z, d)
-      if (dead) then
-            t = mt;
-      end if
-      do while ((t < mt) .and. (iter < MAX_TRAJECTORY_POINTS))
-            iter = iter + 1
+C C     Main loop of integration
+C       iter = 0
+C C     Check if particle is alive
+C       dead = is_dead(dimensions, is_electrode, x, y, z, d)
+C       if (dead) then
+C             t = mt;
+C       end if
+C       do while ((t < mt) .and. (iter < MAX_TRAJECTORY_POINTS))
+C             iter = iter + 1
 
-C           Record current state before it gets modified by the 
-C                 integration step
-            x_traj(iter) = x  * 1.0e+3
-            y_traj(iter) = y  * 1.0e+3
-            z_traj(iter) = z  * 1.0e+3
-            exs(iter)    = ex * 1.0e-3
-            eys(iter)    = ey * 1.0e-3
-            ezs(iter)    = ez * 1.0e-3
-            ts(iter)     = t  * 1.0e+6
+C C           Record current state before it gets modified by the 
+C C                 integration step
+C             x_traj(iter) = x  * 1.0e+3
+C             y_traj(iter) = y  * 1.0e+3
+C             z_traj(iter) = z  * 1.0e+3
+C             exs(iter)    = ex * 1.0e-3
+C             eys(iter)    = ey * 1.0e-3
+C             ezs(iter)    = ez * 1.0e-3
+C             ts(iter)     = t  * 1.0e+6
 
-C           Integration timestep calculation
-            a = SQRT(ex*ex + ey*ey + ez*ez) * cmr
-            v = SQRT(vx*vx + vy*vy + vz*vz)
+C C           Integration timestep calculation
+C             a = SQRT(ex*ex + ey*ey + ez*ez) * cmr
+C             v = SQRT(vx*vx + vy*vy + vz*vz)
 
-            a = a + 1.0e-15
-            v = v + 1.0e-15
-            tv = mdist / v
-            ta = SQRT(2.0 * mdist / a)
-            tstep = tv * ta / (tv + ta)
-            tstep = MIN(tstep, mt * 1.0e-3)
-            t = t + tstep
+C             a = a + 1.0e-15
+C             v = v + 1.0e-15
+C             tv = mdist / v
+C             ta = SQRT(2.0 * mdist / a)
+C             tstep = tv * ta / (tv + ta)
+C             tstep = MIN(tstep, mt * 1.0e-3)
+C             t = t + tstep
 
-C           Integration step
-            x = x + tstep * vx + tstep * tstep * ex * cmr / 2
-            y = y + tstep * vy + tstep * tstep * ey * cmr / 2
-            z = z + tstep * vz + tstep * tstep * ez * cmr / 2
+C C           Integration step
+C             x = x + tstep * vx + tstep * tstep * ex * cmr / 2
+C             y = y + tstep * vy + tstep * tstep * ey * cmr / 2
+C             z = z + tstep * vz + tstep * tstep * ez * cmr / 2
 
 
-            call field_at(t, voltages, step_times, 
-     &            n_electrodes, time_steps,
-     &            x, y, z, d, potential_maps, dimensions,
-     &            ex_new, ey_new, ez_new)
+C             call field_at(t, voltages, step_times, 
+C      &            n_electrodes, time_steps,
+C      &            x, y, z, d, potential_maps, dimensions,
+C      &            ex_new, ey_new, ez_new)
 
-C           Check if particle is alive
-            dead = is_dead(dimensions, is_electrode, x, y, z, d)
-            if (dead) then
-                  t = mt;
-            end if
+C C           Check if particle is alive
+C             dead = is_dead(dimensions, is_electrode, x, y, z, d)
+C             if (dead) then
+C                   t = mt;
+C             end if
 
-            vx = vx + tstep * (ex_new + ex) * cmr / 2
-            vy = vy + tstep * (ey_new + ey) * cmr / 2
-            vz = vz + tstep * (ez_new + ez) * cmr / 2
-            ex = ex_new
-            ey = ey_new
-            ez = ez_new
-      end do
-      its = dble(iter)
+C             vx = vx + tstep * (ex_new + ex) * cmr / 2
+C             vy = vy + tstep * (ey_new + ey) * cmr / 2
+C             vz = vz + tstep * (ez_new + ez) * cmr / 2
+C             ex = ex_new
+C             ey = ey_new
+C             ez = ez_new
+C       end do
+C       its = dble(iter)
       end subroutine
 
       subroutine fly_ensemble(particles, xs,ys,zs,vxs,vys,vzs,

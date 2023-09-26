@@ -11,17 +11,9 @@ bc_mask = ones(dimensions);
 % Boundary conditions
 for r = 2:dimensions(1) - 1
     for z = 2:dimensions(2) - 1
-        if r + 1 == 4 * round(res_r / 10.0)
-            if z + 1 > round(res_z / 4.0) && z < 3 * round(res_z / 4.0)
-                boundary_conditions(r, z) = 1.0;
-                bc_mask(r, z) = 0.0;
-            end
-        end
-        if r + 1 == 6 * round(res_r / 10.0)
-            if z + 1 > round(res_z / 4.0) && z < 3 * round(res_z / 4.0)
-                boundary_conditions(r, z) = -1.0;
-                bc_mask(r, z) = 0.0;
-            end
+        if r >= 41 && r <= 61
+            boundary_conditions(r, z) = 1.0;
+            bc_mask(r, z) = 0.0;
         end
     end
 end
@@ -40,10 +32,11 @@ colorbar()
 %%
 
 tic
-refined = refined_laplace(guess, bc_mask, 1.0e-4, 1024, dimensions(1), dimensions(2), 2);
-disp(its);
+refined = refined_laplace(guess, bc_mask, 1.0e-7, 2^14, dimensions(1), dimensions(2), 3);
+% Cut away the "ghost cells" along the border of the mesh
+refined = refined(2:end-1, 2:end-1);
 toc
-imagesc(refined(2:end-1, 2:end-1));
+imagesc(refined);
 set(gca,'YDir','normal')
 colorbar()
 

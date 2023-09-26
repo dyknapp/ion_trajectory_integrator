@@ -28,7 +28,7 @@ C     Locals
       its = 0.0
       change = dble(input_shape(1) * input_shape(2))
       refined = guess
-      do while ((its < maxits) .and. (change > threshold))
+      do while (((its < maxits).and.(change > threshold)).or.(its < 64))
             its = its + 1.0
             change = 0.0
 C           Neumann boundary conditions
@@ -59,6 +59,16 @@ C           Go one way:
                   end do
             end do
 C           Go the other way:
+            do i = 2,(input_shape(1) - 1)
+                  refined(i, 1) = refined(i, 2)
+                  refined(i, input_shape(2)) 
+     &                  = refined(i, input_shape(2)-1)
+            end do
+            do j = 2,(input_shape(2) - 1)
+                  refined(1, j) = refined(2, j)
+                  refined(input_shape(2), j) 
+     &                  = refined(input_shape(2)-1, j)
+            end do
             do ir = 2,(input_shape(1) - 1)
                   do jr = 2,(input_shape(2) - 1)
                         i = 1 + input_shape(1) - ir
@@ -139,18 +149,18 @@ C     Refined Laplace solver
 C     Pre-calculate the refined mesh sizes
       step_dims(refinements, 1) = d1
       step_dims(refinements, 2) = d2
-      do k = 1,refinements - 1
+      do k = 1,(refinements - 1)
             step_dims(refinements - k, 1) =
-     &            step_dims(refinements - k + 1, 1) / 2
+     &            NINT(dble(step_dims(refinements - k + 1, 1)) / 2.0)
             step_dims(refinements - k, 2) =
-     &            step_dims(refinements - k + 1, 2) / 2
+     &            NINT(dble(step_dims(refinements - k + 1, 2)) / 2.0)
       end do
 
 C     Solve the Laplace equation
       do k = 1,refinements
 C           Handling the interpolation / allocation of the guess
 C           For first iteration, downsample the input guess
-            if (k == 1) then
+            if (k .eq. 1) then
                   allocate(temp_guess(step_dims(k, 1), step_dims(k, 2)))
                   allocate(temp2(step_dims(k, 1), step_dims(k, 2)))
                   call nn_interpolate2D(guess, d1, d2, 
@@ -159,8 +169,6 @@ C           For first iteration, downsample the input guess
 C           For 2nd iter. onward, upsample previous result
 C           Requires extra temporary variable while reallocating
             else
-                  ! Read further in code... this is already true:
-                  !temp2 = temp_guess
                   deallocate(temp_guess)
                   allocate(temp_guess(step_dims(k, 1), step_dims(k, 2)))
                   call nn_interpolate2D(temp2,
@@ -169,12 +177,11 @@ C           Requires extra temporary variable while reallocating
      &                            temp_guess)
                   deallocate(temp2)
                   allocate(temp2(step_dims(k, 1), step_dims(k, 2)))
+
+                  deallocate(temp_bcs)
             end if
 C           BC masks are easier:Downsample from input mask for each step
 C           We just need to remember to deallocate after the first time.
-            if (k > 1) then
-                  deallocate(temp_bcs)
-            end if
             allocate(temp_bcs(step_dims(k, 1), step_dims(k, 2)))
             call nn_interpolate2D(bc_mask, d1, d2, 
      &                            step_dims(k, 1), step_dims(k, 2),
@@ -188,15 +195,16 @@ C           Reapply boundary conditions to rough mesh.
                         temp_guess(m, n) 
      &                              = (1.0 - temp_bcs(m, n))
      &                              * temp2(m, n)
+     &                              + temp_bcs(m, n)
+     &                              * temp_guess(m, n)
                   end do
             end do
 C           Now, run the Laplace solver on the rough mesh.
             call iterate_laplace(temp_guess, temp_bcs, threshold,maxits,
      &                           step_dims(k, 1), step_dims(k, 2),
      &                           its, temp2)
-            temp_guess = temp2
       end do
-      refined = temp_guess
+      refined = temp2
       deallocate(temp_guess)
       deallocate(temp_bcs)
       deallocate(temp2)
