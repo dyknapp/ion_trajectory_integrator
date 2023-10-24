@@ -33,7 +33,7 @@ electrode_names = ["quad_doubled.PA1.patxt", ...
                    "quad_doubled.PA8.patxt", ...
                   ];
 
-% How many lines to skip at the head of a *.patxt file?
+% Where does the data in the patxt file start?
 start_line = 22;
 
 % Load and parse the relevant data that is specified above:
