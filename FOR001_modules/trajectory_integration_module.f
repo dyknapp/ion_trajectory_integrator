@@ -3,12 +3,16 @@ C     ^^ IF YOU CHANGE IT HERE, YOU NEED TO CHANGE IT IN THE OTHER FILES
 
       module trajectory_integration
       use iso_c_binding, only: c_int, c_double
-      implicit none
-
       contains
 
+      function minimal_test(in) bind(c, name="minimal_test")
+      real(c_double), intent(in) :: in
+      real(c_double) :: minimal_test
+      minimal_test = 2 * in
+      end function
+
 C     Function for linear interpolation on a 4x4x4 lattice
-      function lininterpolate3D(matrix, xin, yin, zin, d_grid) 
+      pure function lininterpolate3D(matrix, xin, yin, zin, d_grid) 
      & bind(c, name = "lininterpolate3D")
       real(c_double), intent(in) :: xin, yin, zin, d_grid
       real(c_double), dimension(64), intent(in) :: matrix
@@ -60,7 +64,7 @@ C     interplate matrix along faces of the evaluated grid
 
 C     Calculate the electric field by computing the gradient of a point 
 C           of a given 4x4x4 potential lattice.
-      subroutine potEfunc(potential, x, y, z, d, Ex, Ey, Ez)
+      pure subroutine potEfunc(potential, x, y, z, d, Ex, Ey, Ez)
      & bind(c, name = "potEfunc")
       real(c_double), intent(in) :: x, y, z, d
       real(c_double), dimension(4, 4, 4), intent(in) :: potential
@@ -76,7 +80,7 @@ C           of a given 4x4x4 potential lattice.
 
 C     Subroutine for interpolating electrode voltages
 C     expects a size [n_electrodes, time_steps] sized matrix
-      subroutine interpolate_voltages(t, voltages, step_times, 
+      pure subroutine interpolate_voltages(t, voltages, step_times, 
      &      n_electrodes, time_steps, interpolated_voltages)
      & bind(c, name = "interpolate_voltages")
       integer(c_int), intent(in) :: n_electrodes, time_steps
@@ -111,7 +115,7 @@ C     expects a size [n_electrodes, time_steps] sized matrix
       end subroutine
 
 C     Subroutine for computing the electric field at a point
-      subroutine field_at(t, voltages, step_times, 
+      pure subroutine field_at(t, voltages, step_times, 
      &      n_electrodes, time_steps,
      &      x, y, z, d, potential_maps, dimensions,
      &      ex, ey, ez)
@@ -140,22 +144,16 @@ C     What are the elctrode voltages right now?
      &            n_electrodes, time_steps, interpolated_voltages)
 
 C     Initialize potential array
-      do ix = 1, 4
-            do iy = 1, 4
-                  do iz = 1, 4
-                        potential(ix, iy, iz) = 0.0
-                  end do
-            end do
-      end do
+      potential = 0.0
 
 C     Cut out a 4x4x4 area of the potential maps and compute linear sum
       cx = FLOOR(x / d)
       cy = FLOOR(y / d)
       cz = FLOOR(z / d)             ! Center coordinates
-      do idx = 1, n_electrodes      ! Array slicing:
-            do ix = 1, 4
-                  do iy = 1, 4
-                        do iz = 1, 4
+      do idx = 1,n_electrodes      ! Array slicing:
+            do ix = 1,4
+                  do iy = 1,4
+                        do iz = 1,4
                               potential(ix, iy, iz) =
      &                                             potential(ix, iy, iz)
      &                                     + (interpolated_voltages(idx)
@@ -172,7 +170,7 @@ C     Correct the coordinates' offset and compute the E field
       call potEfunc(potential, tx, ty, tz, d, ex, ey, ez)
       end subroutine
 
-      function is_dead(dimensions, is_electrode, x, y, z, d)
+      pure function is_dead(dimensions, is_electrode, x, y, z, d)
       integer(c_int), dimension(3), intent(in) :: dimensions
       integer(c_int), intent(in),
      &      dimension(dimensions(1), dimensions(2), dimensions(3))
@@ -310,100 +308,228 @@ C           Check if particle is alive
       its = dble(iter)
       end subroutine
 
-      function lin_interpolate(xs, ts, points)
-     & bind(c, name='lin_interpolate')
-      real(c_double), dimension(:), intent(in) :: xs, ts
-      real(c_double), dimension(:), intent(in) :: points
-      real(c_double), dimension(:), intent(out) :: lin_interpolate
-      integer :: size
-      x_idx = 1
-      size = SIZE(xs)
-      do p_idx = 1,size
-            while (ts(x_idx) >= points(p_idx)) 
-                  idx = idx + 1
-                  if idx > size - 1 then
-                        goto 10
-                  end if
-            end do
-            lin_interpolate(p_idx) = 
-     &                  xs(x_idx)
-     &                  + (xs(x_idx + 1) - xs(x_idx)) 
-     &                  * (points(p_idx) - ts(x_idx))
-     &                  / (ts(x_idx + 1) - ys(x_idx)) 
- 10         continue
-      end do
-      end function
 
-      subroutine fly_ensemble(particles, xs,ys,zs,vxs,vys,vzs,
+C     Subroutine for Verlet integration of ion trajectory.
+C     Data is recorded with time interval t_int
+      subroutine integrate_trajectory_lite(xx, yy, zz, vxx, vyy, vzz,
+     &                        potential_maps, voltages, step_times_in,
+     &                        time_steps, dimensions, is_electrode,
+     &                        n_electrodes, m, q, din, maxdist, maxt, 
+     &                        data_t_interval, out_length,
+     &                        x_traj, y_traj, z_traj, ts, its, recorded)
+     & bind(c, name = "integrate_trajectory_lite")
+C     Variable declarations:
+C     Dummy variables:
+      real(c_double), intent(in) :: xx, yy, zz, vxx, vyy, vzz, m, q, din
+      real(c_double), intent(in) 
+     &      :: maxdist, maxt, data_t_interval
+      integer(c_int), intent(in) :: time_steps, n_electrodes
+      real(c_double), dimension(time_steps, n_electrodes)
+     &      , intent(in) :: voltages
+      integer(c_int), dimension(3), intent(in) :: dimensions
+      integer(c_int), intent(in),
+     &      dimension(dimensions(1), dimensions(2), dimensions(3))
+     &      :: is_electrode
+      real(c_double), 
+     &      dimension(n_electrodes, dimensions(1), 
+     &      dimensions(2), dimensions(3)), 
+     &      intent(in) :: potential_maps
+      real(c_double), dimension(time_steps), intent(in) :: step_times_in
+      integer(c_int) :: out_length
+      real(c_double), dimension(out_length), 
+     &      intent(out)
+     &      :: x_traj, y_traj, z_traj, ts
+      real(c_double), intent(out) :: its, recorded
+
+C     Local variables
+      real(c_double), dimension(time_steps) :: step_times
+      real(c_double) :: x, y, z, vx, vy, vz, t, mdist, mt, cmr,
+     &      a, v, tv, ta, tstep, ex, ey, ez, ex_new, ey_new, ez_new, d,
+     &      interval, next
+      integer :: idx, iter, t_idx
+      logical :: dead 
+      
+C     Unit conversions.  For simplicity, we work with SI units within 
+C           this function.
+      x = xx * 1.0e-3
+      y = yy * 1.0e-3
+      z = zz * 1.0e-3                           ! mm -> m
+      vx = vxx * 1.0e+3
+      vy = vyy * 1.0e+3
+      vz = vzz * 1.0e+3                         ! mm/us -> m/s
+      interval = data_t_interval * 1.0e-6
+      step_times = step_times_in * 1.0e-6
+      t = step_times(1)                         ! us -> s
+      d = din * 1e-3                            ! mm -> m
+      mdist = maxdist * 1.0e-3
+      mt = maxt * 1.0e-6                        ! us -> s
+
+C     Charge-to-mass ratio
+      cmr = ((1.602176634e-19) * q) / ((1.660539067e-27) * m);
+
+      call field_at(t, voltages, step_times, 
+     &       n_electrodes, time_steps,
+     &       x, y, z, d, potential_maps, dimensions,
+     &       ex, ey, ez)
+
+C     Main loop of integration
+      iter = 0
+C     Check if particle is alive
+      dead = is_dead(dimensions, is_electrode, x, y, z, d)
+      if (dead) then
+            t = mt;
+      end if
+C     Initialize data recording
+      t_idx = 0
+      ts = 0.0
+      x_traj = 0.0
+      y_traj = 0.0
+      z_traj = 0.0
+      next = 0.0
+      do while ((t < mt) .and. (iter < MAX_TRAJECTORY_POINTS))
+            iter = iter + 1
+
+C           Record current state before it gets modified by the 
+C                 integration step
+            if (t >= next) then
+                  t_idx = t_idx + 1
+                  next = interval * dble(t_idx)
+                  x_traj(t_idx) = x  * 1.0e+3
+                  y_traj(t_idx) = y  * 1.0e+3
+                  z_traj(t_idx) = z  * 1.0e+3
+                  ts(t_idx)     = t  * 1.0e+6
+            end if
+
+C           Integration timestep calculation
+            a = SQRT(ex*ex + ey*ey + ez*ez) * cmr
+            v = SQRT(vx*vx + vy*vy + vz*vz)
+
+            a = a + 1.0e-15
+            v = v + 1.0e-15
+            tv = mdist / v
+            ta = SQRT(2.0 * mdist / a)
+            tstep = tv * ta / (tv + ta)
+            tstep = MIN(tstep, mt * 1.0e-3)
+            t = t + tstep
+
+C           Integration step
+            x = x + tstep * vx + tstep * tstep * ex * cmr / 2
+            y = y + tstep * vy + tstep * tstep * ey * cmr / 2
+            z = z + tstep * vz + tstep * tstep * ez * cmr / 2
+
+
+            call field_at(t, voltages, step_times, 
+     &            n_electrodes, time_steps,
+     &            x, y, z, d, potential_maps, dimensions,
+     &            ex_new, ey_new, ez_new)
+
+C           Check if particle is alive
+            dead = is_dead(dimensions, is_electrode, x, y, z, d)
+            if (dead) then
+                  t = mt;
+            end if
+
+            vx = vx + tstep * (ex_new + ex) * cmr / 2
+            vy = vy + tstep * (ey_new + ey) * cmr / 2
+            vz = vz + tstep * (ez_new + ez) * cmr / 2
+            ex = ex_new
+            ey = ey_new
+            ez = ez_new
+      end do
+      its = dble(iter)
+      recorded = dble(t_idx)
+      end subroutine
+
+C       subroutine time_interpolate(xs, ts, nin, points, nout,
+C      &                            interpolated)
+C      & bind(c, name='time_interpolate')
+C       integer(c_int), intent(in) :: nin, nout
+C       real(c_double), dimension(nin),  intent(in) :: xs, ts
+C       real(c_double), dimension(nin),  intent(in) :: points
+C       real(c_double), dimension(nout), intent(out):: interpolated
+C       integer :: p_idx, x_idx
+C       x_idx = 0
+C       do p_idx = 1,nout
+C             do while (ts(x_idx) < points(p_idx) .and. x_idx < nin)
+C                   x_idx = x_idx + 1
+C             end do
+C             if (x_idx > nin) then
+C                   x_idx = nin
+C                   interpolated(p_idx) = 0.0
+C                   CYCLE
+C             end if
+C             interpolated(p_idx) = 
+C      &                  xs(x_idx)
+C      &                  + (xs(x_idx) - xs(x_idx - 1)) 
+C      &                  * (points(p_idx) - ts(x_idx))
+C      &                  / (ts(x_idx) - ts(x_idx - 1)) 
+C       end do
+C       end subroutine
+
+      subroutine fly_ensemble(interps, particles, xs,ys,zs,vxs,vys,vzs,
      &                        potential_maps, voltages, step_times_in,
      &                        time_steps, dimensions, is_electrode,
      &                        n_electrodes, m, q, din, maxdist, maxt,
      &                        x_trajs, y_trajs, z_trajs, 
      &                        tss, exss, eyss, ezss, itss)
      & bind(c, name = "fly_ensemble")
-C     Local variables:
-      real(c_double), dimension(MAX_TRAJECTORY_POINTS)
-     &      :: x_traj, y_traj, z_traj, ts, exs, eys, ezs
-      integer :: i, j
-      real(c_double) :: its
-
 C     Variable declarations:
 C     Dummy variables:
-      integer(c_int), intent(in) :: particles!, interps
-
+      integer(c_int), intent(in) :: particles, interps
       real(c_double), dimension(particles), intent(in) 
      &      :: xs, ys, zs, vxs, vys, vzs
-
       real(c_double), intent(in) :: m, q, din
-
       real(c_double), intent(in) :: maxdist, maxt
-     
       integer(c_int), intent(in) :: time_steps, n_electrodes
-
       real(c_double), dimension(time_steps, n_electrodes), intent(in) 
      &      :: voltages
-
       integer(c_int), dimension(3), intent(in) :: dimensions
-
       integer(c_int), intent(in),
      &      dimension(dimensions(1), dimensions(2), dimensions(3))
      &      :: is_electrode
-
       real(c_double), 
      &      dimension(n_electrodes, dimensions(1), 
      &      dimensions(2), dimensions(3)), intent(in) 
      &      :: potential_maps
-
       real(c_double), dimension(time_steps), intent(in) 
      &      :: step_times_in
-
-      real(c_double), dimension(particles, MAX_TRAJECTORY_POINTS), 
+      real(c_double), dimension(particles, interps), 
      &      intent(out) :: x_trajs,y_trajs,z_trajs,tss,exss,eyss,ezss
-
       real(c_double), dimension(particles),
      &      intent(out) :: itss
 
+C     Local variables:
+      real(c_double), dimension(MAX_TRAJECTORY_POINTS)
+     &      :: x, y, z, t, ex, ey, ez
+      real(c_double), dimension(interps)
+     &      :: x_traj, y_traj, z_traj, ts, exs, eys, ezs, interp_ts
+      real(c_double) :: its, increment
+      integer :: i, j, k
+
 C     Allocate the output variables
-      !interps = MAX_TRAJECTORY_POINTS ! For now, no interpolation
-C       allocate(x_trajs(particles, MAX_TRAJECTORY_POINTS))
-C       allocate(y_trajs(particles, MAX_TRAJECTORY_POINTS))
-C       allocate(z_trajs(particles, MAX_TRAJECTORY_POINTS))
-C       allocate(tss(particles, MAX_TRAJECTORY_POINTS))
-C       allocate(exss(particles, MAX_TRAJECTORY_POINTS))
-C       allocate(eyss(particles, MAX_TRAJECTORY_POINTS))
-C       allocate(ezss(particles, MAX_TRAJECTORY_POINTS))
-C       allocate(itss(particles))
 
 C     Run the trajectory simulations
-      !$OMP PARALLEL DO DEFAULT(SHARED) PRIVATE(i,j) SCHEDULE(STATIC,16)
+C       !$OMP PARALLEL DO DEFAULT(SHARED) 
+C      &!$ PRIVATE(i, j, k, xs, ys, zs, ts, exs, eys, ezs, interp_ts) 
+C      &!$ SCHEDULE(STATIC, 16)
       do i = 1,particles
             call integrate_trajectory(xs(i), ys(i), zs(i), 
      &                          vxs(i), vys(i), vzs(i),
      &                          potential_maps, voltages, step_times_in,
      &                          time_steps, dimensions, is_electrode,
      &                          n_electrodes, m, q, din, maxdist, maxt,
-     &                          x_traj,y_traj,z_traj,ts,exs,eys,ezs,its)
-            do j = 1,NINT(its)
+     &                          x, y, z, t, ex, ey, ez, its)
+
+C           For the output, we interpolate to reduce size
+            increment = t(NINT(its)) / its
+            interp_ts(1) = 0.0
+            do k = 2,NINT(its)
+                  interp_ts(k) = 0.0!increment + interp_ts(k - 1)
+            end do
+C             call time_interpolate(x, t, MAX_TRAJECTORY_POINTS,
+C      &                            interp_ts, interps, x_traj)
+
+            do j = 1,interps
                   x_trajs(i, j) = x_traj(j)
                   y_trajs(i, j) = y_traj(j)
                   z_trajs(i, j) = z_traj(j)
@@ -415,7 +541,78 @@ C     Run the trajectory simulations
             itss(i) = its
             continue
       end do
-      !$OMP END PARALLEL DO
+C       !$OMP END PARALLEL DO
+
+      end subroutine
+      
+      subroutine fly_aqs(amp_scales, a_res, off_scales, o_res, reps, 
+     &                        xx, yy, zz, vxx, vyy, vzz,
+     &                        rf_potential, endcap_potential,
+     &                        voltages, step_times_in,
+     &                        time_steps, dimensions, is_electrode,
+     &                        n_electrodes, m, q, din, maxdist, maxt,
+     &                        lifetimes)
+     & bind(c, name = "fly_aqs")
+C     Variable declarations:
+C     Dummy variables:
+      integer(c_int), intent(in) :: reps, a_res, o_res
+      real(c_double), dimension(a_res), intent(in) :: amp_scales
+      real(c_double), dimension(o_res), intent(in) :: off_scales
+      real(c_double), intent(in) 
+     &      :: xx, yy, zz, vxx, vyy, vzz
+      real(c_double), intent(in) :: m, q, din
+      real(c_double), intent(in) :: maxdist, maxt
+      integer(c_int), intent(in) :: time_steps, n_electrodes
+      real(c_double), dimension(time_steps, n_electrodes), intent(in) 
+     &      :: voltages
+      integer(c_int), dimension(3), intent(in) :: dimensions
+      integer(c_int), intent(in),
+     &      dimension(dimensions(1), dimensions(2), dimensions(3))
+     &      :: is_electrode
+      real(c_double), 
+     &      dimension(n_electrodes, dimensions(1), 
+     &      dimensions(2), dimensions(3)), intent(in) 
+     &      :: rf_potential, endcap_potential
+      real(c_double), dimension(time_steps), intent(in) 
+     &      :: step_times_in
+      real(c_double), dimension(a_res, o_res), intent(out) :: lifetimes
+
+C     Local variables:
+      real(c_double), dimension(MAX_TRAJECTORY_POINTS)
+     &      :: x, y, z, t, ex, ey, ez
+      real(c_double) :: its, increment
+      real(c_double), allocatable :: potential_maps(:,:,:,:)
+      integer :: i, j, k
+
+C     Run the trajectory simulations
+      lifetimes = 0.0
+      allocate(potential_maps(n_electrodes, 
+     &      dimensions(1), dimensions(2), dimensions(3)))
+
+C       !$OMP PARALLEL DO DEFAULT(SHARED) 
+C      &!$ PRIVATE(i, j, k, x, y, z, t, ex, ey, ez, its, potential_maps) 
+C      &!$ SCHEDULE(STATIC, 16)
+      do i = 1,a_res
+            do j = 1,o_res
+                  do k = 1,reps
+                        potential_maps = amp_scales(i) * rf_potential
+     &                        + endcap_potential
+                        potential_maps(2,:,:,:)=potential_maps(2,:,:,:)
+     &                        + rf_potential(1,:,:,:) * off_scales(j)
+                        call integrate_trajectory(xx,yy,zz,vxx,vyy,vzz,
+     &                        potential_maps, 
+     &                        voltages, step_times_in,
+     &                        time_steps, dimensions, is_electrode,
+     &                        n_electrodes, m, q, din, maxdist, maxt,
+     &                        x, y, z, t, ex, ey, ez, its)
+C                         !$OMP ATOMIC
+                        lifetimes(i, j) = lifetimes(i, j) 
+     &                     + (t(int(its)) / dble(reps))
+C                         !$OMP END ATOMIC
+                  end do
+            end do
+      end do
+C       !$OMP END PARALLEL DO
 
       end subroutine
 
