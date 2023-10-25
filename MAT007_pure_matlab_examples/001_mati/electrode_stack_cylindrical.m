@@ -65,6 +65,17 @@ if ~exist('dimensions', 'var') || loadanyways
     is_electrode = logical(is_electrode);
 end
 
+% Go through and convert the Cartesian into cylindrical (r, z) potentials
+pms_cylindrical = zeros([length(electrode_names), dimensions(1:2)]);
+z1 = floor(double(dimensions(3) + 1) / 2.0);
+z2 = ceil(double(dimensions(3) + 1) / 2.0);
+potential_maps = reshape(potential_maps, [length(electrode_names) dimensions]);
+for i = 1:length(electrode_names)
+    pms_cylindrical(i, :, :) = 0.5 * (...
+          potential_maps(i, :, :, z1)...
+        + potential_maps(i, :, :, z2));
+end
+
 % What is the grid spacing in the *.patxt files that were loaded?
 d = 1.0;                % mm
 
@@ -72,7 +83,7 @@ d = 1.0;                % mm
 % If an ion leaves the simulation domain or hits an electrode, it may not
 %   survive all the way until end_time
 start_time =  0.0;      % us
-end_time   =  5.0;     % us
+end_time   =  0.5;     % us
 
 % Particle specifications
 m = 2.0;                % amu (e.g. 2.0 would be roughly correct for H2+)
@@ -119,36 +130,24 @@ voltages = set_voltage_at_time(2, 25.0, turn_on_time, step_times, voltages);
 % Always have the detector at -2.5kV
 voltages = set_voltage_at_time(8, -2500.0, 0.0, step_times, voltages);
 
-% If you are curious to see what the potential from electrode1 would be:
-potential_maps_reshaped = reshape(potential_maps, [length(electrode_names) dimensions]);
-imagesc(squeeze(potential_maps_reshaped(2,round(dimensions(1)/2),:,:)))
-axis image
-colorbar()
-colormap('turbo')
-clear potential_maps_reshaped
 %% Initializing
 % We need to choose the particle's initial phase space position.
 
 % Initialize the particle in the center of the trap.
 % We multiply by d (the grid spacing) because the integrator expects
 %   physical units, not indices.
-xx1 = d * double(dimensions(1) + 1) / 2.0; % mm
-yy1 = d * double(dimensions(2) + 1) * 0.9; % mm
-zz1 = d * double(dimensions(3) + 1) / 2.0; % mm
-
-% If you are curious to see what the potential from electrode1 would be, 
-% compared to the starting point:
-potential_maps_reshaped = reshape(potential_maps, [length(electrode_names) dimensions]);
+rr1 = d * double(dimensions(1) + 1) / 2.0; % mm
+zz1 = d * double(dimensions(2) + 1) * 0.9; % mm
 
 tiledlayout(4, 2)
 for i = 1:length(electrode_names)
     nexttile
-    imagesc(squeeze(potential_maps_reshaped(i,:,:,round(dimensions(3)/2))))
+    imagesc(squeeze(pms_cylindrical(i, :, :)))
     title(sprintf('Electrode %d', i))
     axis image
     colorbar()
     colormap('turbo')
-    yline(zz1/d, 'r'); xline(yy1/d, 'r');
+    yline(rr1/d, 'r'); xline(yy1/d, 'r');
     title(sprintf('Electrode %d', i))
 end
 drawnow('update')
