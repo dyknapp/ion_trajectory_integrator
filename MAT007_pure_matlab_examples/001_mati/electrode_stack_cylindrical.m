@@ -34,6 +34,17 @@ electrode_names = ["backingplate.patxt", ...
 % Where does the data in the patxt file start?
 start_line = 19;
 
+% Do the SIMION files have the right kind of symmetry?
+% This example uses cylindrical symmetry, but we are loading a Cartesian
+% potantial file so that the results are directly comparable to the
+% Cartesian.
+expected_symmetry = "planar";
+for i = 1:length(electrode_names)
+    if ~strcmp(expected_symmetry, fetch_symmetry(electrode_names(i), start_line))
+        error("Incorrect symmetry: %s\nExpected symmetry: %s\n", electrode_names(i), expected_symmetry);
+    end
+end
+
 % Load and parse the relevant data that is specified above:
 %   potential_maps      :       4D array.  Size: 
 %                               [# of electrodes, x grid cells, y ", z "]
@@ -66,15 +77,23 @@ if ~exist('dimensions', 'var') || loadanyways
 end
 
 % Go through and convert the Cartesian into cylindrical (r, z) potentials
-pms_cylindrical = zeros([length(electrode_names), dimensions(1:2)]);
+% In keeping with previous convention, dimensions_cylindrical counts also
+% the r = -1,-2 rows that are added to the potential
 z1 = floor(double(dimensions(3) + 1) / 2.0);
 z2 = ceil(double(dimensions(3) + 1) / 2.0);
+
+dimensions_cylindrical = [1 + ceil(dimensions(1) / 2.0), dimensions(2)];
+is_electrode_cylindrical = zeros(dimensions_cylindrical);
+is_electrode_cylindrical(:, :) = is_electrode(ceil(dimensions(1) / 2.0):end, :, z1) + is_electrode(ceil(dimensions(1) / 2.0):end, :, z2);
+
+pms_cylindrical = zeros([length(electrode_names), dimensions_cylindrical]);
 potential_maps = reshape(potential_maps, [length(electrode_names) dimensions]);
 for i = 1:length(electrode_names)
     pms_cylindrical(i, :, :) = 0.5 * (...
-          potential_maps(i, :, :, z1)...
-        + potential_maps(i, :, :, z2));
+          potential_maps(i, ceil(dimensions(1) / 2.0):end, :, z1)...
+        + potential_maps(i, ceil(dimensions(1) / 2.0):end, :, z2));
 end
+pms_cylindrical = prep_cylindrical(pms_cylindrical);
 
 % What is the grid spacing in the *.patxt files that were loaded?
 d = 1.0;                % mm
@@ -83,10 +102,10 @@ d = 1.0;                % mm
 % If an ion leaves the simulation domain or hits an electrode, it may not
 %   survive all the way until end_time
 start_time =  0.0;      % us
-end_time   =  0.5;     % us
+end_time   =  0.5;      % us
 
 % Particle specifications
-m = 2.0;                % amu (e.g. 2.0 would be roughly correct for H2+)
+m = 1.0;                % amu (e.g. 2.0 would be roughly correct for H2+)
 q = 1.0;                % atomic units
 
 % Integration step size limit
@@ -136,18 +155,21 @@ voltages = set_voltage_at_time(8, -2500.0, 0.0, step_times, voltages);
 % Initialize the particle in the center of the trap.
 % We multiply by d (the grid spacing) because the integrator expects
 %   physical units, not indices.
-rr1 = d * double(dimensions(1) + 1) / 2.0; % mm
+rr1 = 1.0; % mm
 zz1 = d * double(dimensions(2) + 1) * 0.9; % mm
+OO1 = rand() * 2.0 * pi;  % O looks like theta... right?
 
 tiledlayout(4, 2)
 for i = 1:length(electrode_names)
     nexttile
-    imagesc(squeeze(pms_cylindrical(i, :, :)))
+    imagesc(d*(0:dimensions_cylindrical(2)), ...
+            d*(0:(dimensions_cylindrical(1)-3)), ...         
+            squeeze(pms_cylindrical(i, 3:end, :)))
     title(sprintf('Electrode %d', i))
     axis image
     colorbar()
     colormap('turbo')
-    yline(rr1/d, 'r'); xline(yy1/d, 'r');
+    yline(abs(rr1)/d, 'r'); xline(zz1/d, 'r');
     title(sprintf('Electrode %d', i))
 end
 drawnow('update')
@@ -166,11 +188,14 @@ phi = 2 * pi * rand();
 vxx1 = v * sin(theta) * cos(phi);      % mm / us
 vyy1 = v * sin(theta) * sin(phi);      % mm / us
 vzz1 = v * cos(theta);                 % mm / us
+% Just for simplicity, I do Cartesian first, then convert to cylindrical.
+vrr1 = ((rr1 * cos(OO1) * vxx1) + (rr1 * sin(OO1) * vyy1)) / rr1;
+vOO1 = ((rr1 * cos(OO1) * vyy1) - (rr1 * sin(OO1) * vxx1)) / rr1^2;
 
 %% Integration: MATLAB version
 fprintf("Simulation started.\n")
 tic
-ion_trajectory =  integrate_trajectory(xx1, yy1, zz1, vxx1, vyy1, vzz1, ...
+ion_trajectory =  integrate_trajectory_cylindrical(rr1, zz1, OO1, vrr1, vzz1, vOO1, ...
                                       potential_maps, voltages, step_times, ...
                                       dimensions, is_electrode, m, q, d, ...
                                       maxdist, end_time);
