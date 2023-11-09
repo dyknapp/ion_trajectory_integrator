@@ -42,7 +42,7 @@ function  output = integrate_trajectory(rr, zz, OO, vrr, vzz, vOO, ...
     O = OO;
     v_r = vrr * 1.0e+3;
     v_z = vzz * 1.0e+3;             % mm/us -> m/s
-    v_O = vOO * 1.0e+6;             % rad/us -> rad/s
+    v_O = vOO;                      % already rad/s 
     step_times = step_times  * 1.0e-6;
     t = step_times(1);     % us -> s
     d = d * 1e-3;                   % mm -> m
@@ -65,17 +65,31 @@ function  output = integrate_trajectory(rr, zz, OO, vrr, vzz, vOO, ...
     % reshape the potential maps in advance for speedy processing
     potential_maps_size = size(potential_maps);
     potential_maps = ...
-        reshape(potential_maps, [potential_maps_size(1), dimensions]);
+        reshape(potential_maps, [potential_maps_size(1), (dimensions + int32([2, 0]))]);
 
     [E_r, E_z] = field_at_cylindrical(r, z, d, potential_maps, ...
         interpolate_voltages(voltages, step_times(1), step_times));
     er_list = [E_r];
     ez_list = [E_z];
 
+    % r needs to be finite for anything to make any sense
+    if abs(r) < 1.0e-6
+        if r == 0
+            r = 1.0e-6;
+        else
+            r = r + sign(r) * 1.0e-6;
+        end
+    end
+    % Also we want to make sure v_O is not crazy large...
+    % Since this can carelessly happen with coordinate system conversions
+    if abs(v_O) > 1.0e+12
+        v_O = sign(v_O) * 1.0e+12;
+    end
     % We need to factor in the centripetal acceleration
-    % We take abs(r) because we allow negative r.
+    % We allow negative r, but this works out nicely with the direction of
+    % the centripetal acceleration
     % Also: it's a waste of time to calculate acceleration twice!!
-    a_r = E_r*cmr + abs(m * V_O^2 * r);
+    a_r = E_r*cmr + v_O^2 * r;
     a_z = E_z * cmr;
     a_O = -2 * v_O * v_r / r;
     while t < maxt
@@ -99,8 +113,8 @@ function  output = integrate_trajectory(rr, zz, OO, vrr, vzz, vOO, ...
         
         % stop loop if particle goes out of bounds
         % we need extra room so that the field calculation works
-        if (x < 3 * d || y < 3 * d || z < 3 * d || ...
-            x > double(dimensions(1) - 3) * d || y > double(dimensions(2) - 3) * d || z > double(dimensions(3) - 3) * d)
+        if (z < 3 * d || ...
+            r > double(dimensions(1) - 3) * d || z > double(dimensions(2) - 3) * d)
             break
         end
 
@@ -109,11 +123,11 @@ function  output = integrate_trajectory(rr, zz, OO, vrr, vzz, vOO, ...
         end
         
         [E_r_new, E_z_new] = ...
-            field_at_cylindrical(r, z, d, potential_maps, ...
+            field_at_cylindrical(abs(r), z, d, potential_maps, ...
                      interpolate_voltages(voltages, t, step_times)); 
 
         % calculate velocities vor next timestep
-        a_r_new = E_r_new*cmr + abs(m * V_O^2 * r);
+        a_r_new = E_r_new * cmr + v_O^2 * r;
         a_z_new = E_z_new * cmr;
         a_O_new = -2 * v_O * v_r / r;
         v_r = v_r + t_step * (a_r_new + a_r) / 2;
@@ -130,19 +144,19 @@ function  output = integrate_trajectory(rr, zz, OO, vrr, vzz, vOO, ...
         vr_list(end + 1) = v_r;
         vz_list(end + 1) = v_z;
         vO_list(end + 1) = v_O;
-        er_list(end + 1) = e_r;
-        ez_list(end + 1) = e_z;
+        er_list(end + 1) = E_r;
+        ez_list(end + 1) = E_z;
         t_list(end + 1)  = t;
     end
     
     %output coordinates
-    output.r        = x_list * 1.0e+3;
-    output.z        = y_list * 1.0e+3;
-    output.O        = z_list * 1.0e+3;  % m -> mm
-    output.vr       = ex_list * 1.0e-3;
-    output.vz       = ey_list * 1.0e-3; % m / s -> mm/us
-    output.vO       = ez_list * 1.0e+6; % rad / s -> rad / us
-    output.er       = vx_list * 1.0e-3; 
-    output.ez       = vy_list * 1.0e-3; % V/mm -> V/m
+    output.r        = r_list * 1.0e+3;
+    output.z        = z_list * 1.0e+3;
+    output.O        = O_list * 1.0e+3;  % m -> mm
+    output.vr       = vr_list * 1.0e-3;
+    output.vz       = vz_list * 1.0e-3; % m / s -> mm/us
+    output.vO       = vO_list * 1.0e+6; % rad / s -> rad / us
+    output.er       = er_list * 1.0e-3; 
+    output.ez       = ez_list * 1.0e-3; % V/mm -> V/m
     output.t        = t_list * 1.0e+6;  % s -> us
 end
