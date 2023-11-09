@@ -15,14 +15,16 @@ function [Er, Ez] = field_at_cylindrical(r, z, d, ...
     % Since the region has been cut out, we want to similarly offset x,y,z
     % See notes ??? about the indexing here
     % We want the original x,y,z to be mapped to the 3nd of 5 elements
-    r = (2 + (r / d) - (r_grid - 1)) * d;
-    z = (2 + (z / d) - (z_grid - 1)) * d;
+    % Again. Remember, the r-grid needs to be shifted by 2 to account for 
+    r = (2 + 2 + (r / d) - (r_grid - 1)) * d;
+    z = (    2 + (z / d) - (z_grid - 1)) * d;
     % By doing this, we are able to just plug the coordinates and potential
     % straight into the existing linInterpolate3D function.
 
     % Calculate linear sum of electrode contributions.
     potential = tensorprod(voltages, potential_maps, 2, 1);
     potential = reshape(potential, [5, 5]);
+    % imagesc(potential); colorbar;
 
     % Find the field based on the potential
     [Er, Ez] = potEfunc_cylindrical(r, z, potential, d);

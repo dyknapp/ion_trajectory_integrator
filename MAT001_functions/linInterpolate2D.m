@@ -20,7 +20,7 @@ function [matrix_interp] = linInterpolate2D(matrix, r, z, d)
     z = z / d;
 
     % find the index which represents the coordinates
-    r_grid = fix(r) + 3;
+    r_grid = fix(r);
     z_grid = fix(z);
 
     % get the coordinate relative to the calculated index

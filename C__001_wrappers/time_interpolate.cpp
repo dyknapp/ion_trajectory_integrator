@@ -16,8 +16,6 @@ public:
         ArrayFactory factory;
 
         try{
-            //  subroutine time_interpolate(xs, ts, nin, points, nout,
-            // &                            interpolated)
             checkArguments(outputs, inputs);
 
             // getNumberOfElements needs to come BEFORE;

@@ -102,7 +102,7 @@ d = 1.0;                % mm
 % If an ion leaves the simulation domain or hits an electrode, it may not
 %   survive all the way until end_time
 start_time =  0.0;      % us
-end_time   =  0.5;      % us
+end_time   =  5;        % us
 
 % Particle specifications
 m = 1.0;                % amu (e.g. 2.0 would be roughly correct for H2+)
@@ -112,7 +112,7 @@ q = 1.0;                % atomic units
 % The integration scheme used in this software has variable timesteps.  The
 %   timesteps will be adjusted so that whatever value is set below, the
 %   particle should never travel further than that in one timestep.
-maxdist =  0.0001;      % mm
+maxdist =  0.001;      % mm
 
 %% Electrode voltages.
 % I wrote a simplified system for setting the electrode voltages.  If you
@@ -155,7 +155,7 @@ voltages = set_voltage_at_time(8, -2500.0, 0.0, step_times, voltages);
 % Initialize the particle in the center of the trap.
 % We multiply by d (the grid spacing) because the integrator expects
 %   physical units, not indices.
-rr1 = 1.0; % mm
+rr1 = 0.1 + 0.01 * rand(); % mm
 zz1 = d * double(dimensions(2) + 1) * 0.9; % mm
 OO1 = rand() * 2.0 * pi;  % O looks like theta... right?
 
@@ -189,22 +189,27 @@ vxx1 = v * sin(theta) * cos(phi);      % mm / us
 vyy1 = v * sin(theta) * sin(phi);      % mm / us
 vzz1 = v * cos(theta);                 % mm / us
 % Just for simplicity, I do Cartesian first, then convert to cylindrical.
-vrr1 = ((rr1 * cos(OO1) * vxx1) + (rr1 * sin(OO1) * vyy1)) / rr1;
-vOO1 = ((rr1 * cos(OO1) * vyy1) - (rr1 * sin(OO1) * vxx1)) / rr1^2;
+% Further, a temporary unit conversion for rr1.
+vrr1 = ((cos(OO1) * vxx1) + (sin(OO1) * vyy1));
+vOO1 = ((cos(OO1) * vyy1) - (sin(OO1) * vxx1)) / rr1;
+
+vOO1 = 100000.0;
 
 %% Integration: MATLAB version
 fprintf("Simulation started.\n")
 tic
 ion_trajectory =  integrate_trajectory_cylindrical(rr1, zz1, OO1, vrr1, vzz1, vOO1, ...
-                                      potential_maps, voltages, step_times, ...
-                                      dimensions, is_electrode, m, q, d, ...
+                                      pms_cylindrical, voltages, step_times, ...
+                                      dimensions_cylindrical, is_electrode, m, q, d, ...
                                       maxdist, end_time);
-x_traj = ion_trajectory.x;
-y_traj = ion_trajectory.y;
+r_traj = ion_trajectory.r;
 z_traj = ion_trajectory.z;
+O_traj = ion_trajectory.O;
 ts     = ion_trajectory.t;
-exs    = ion_trajectory.ex;
-eys    = ion_trajectory.ey;
+vrs    = ion_trajectory.vr;
+vzs    = ion_trajectory.vz;
+vOs    = ion_trajectory.vO;
+ers    = ion_trajectory.er;
 ezs    = ion_trajectory.ez;
 its    = length(ts);
 elapsed_time = toc;
@@ -213,11 +218,12 @@ fprintf("Simulation took %.3gs (%d it/s)\n", elapsed_time, round(its / elapsed_t
 %%
 
 figure
-hold on
-plot(ts, y_traj);
-plot(ts, eys);
-legend('Y-trajectory', 'Y E-field', 'Location', 'southwest')
-ylabel('Trajectory (mm) & E-field (V/m)')
+yyaxis left
+plot(ts, z_traj);
+yyaxis right
+plot(ts, abs(r_traj));
+legend('Z-trajectory', 'R-trajectory', 'Location', 'southwest')
+ylabel('Trajectory (mm)')
 xlabel('Time (us)')
 title(sprintf('Trajectory of ion accelerated at %.1gus', turn_on_time))
 xline(turn_on_time);
