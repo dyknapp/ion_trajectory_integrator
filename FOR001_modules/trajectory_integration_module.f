@@ -521,22 +521,22 @@ C      &!$ SCHEDULE(STATIC, 16)
      &                          x, y, z, t, ex, ey, ez, its)
 
 C           For the output, we interpolate to reduce size
-            increment = t(NINT(its)) / its
-            interp_ts(1) = 0.0
-            do k = 2,NINT(its)
-                  interp_ts(k) = 0.0!increment + interp_ts(k - 1)
-            end do
+C             increment = t(NINT(its)) / its
+C             interp_ts(1) = 0.0
+C             do k = 2,NINT(its)
+C                   interp_ts(k) = 0.0!increment + interp_ts(k - 1)
+C             end do
 C             call time_interpolate(x, t, MAX_TRAJECTORY_POINTS,
 C      &                            interp_ts, interps, x_traj)
 
             do j = 1,interps
-                  x_trajs(i, j) = x_traj(j)
-                  y_trajs(i, j) = y_traj(j)
-                  z_trajs(i, j) = z_traj(j)
-                  tss(i, j)     = ts(j)
-                  exss(i, j)    = exs(j)
-                  eyss(i, j)    = eys(j)
-                  ezss(i, j)    = ezs(j)
+                  x_trajs(i, j) = x(j)
+                  y_trajs(i, j) = y(j)
+                  z_trajs(i, j) = z(j)
+                  tss(i, j)     = t(j)
+                  exss(i, j)    = ex(j)
+                  eyss(i, j)    = ey(j)
+                  ezss(i, j)    = ez(j)
             end do
             itss(i) = its
             continue

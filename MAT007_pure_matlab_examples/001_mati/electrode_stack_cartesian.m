@@ -198,3 +198,14 @@ xlabel('Time (us)')
 title(sprintf('Trajectory of ion accelerated at %.1gus', turn_on_time))
 xline(turn_on_time);
 hold off
+
+%%
+
+figure
+imagesc((0:dimensions(2)-1)*d, (0:dimensions(3)-1)*d, squeeze(is_electrode(round(dimensions(1)/2), :, :))')
+xlabel("y (mm)"); ylabel("z (mm)"); set(gca,'YDir','normal'); colormap("gray");
+axis image
+
+hold on
+plot(y_traj, z_traj, '-r');
+hold off

@@ -204,7 +204,7 @@ fprintf("Simulation took %.3gs (%d it/s)\n", elapsed_time, round(its / elapsed_t
 %% Plot result
 
 stacked_motion_plots(true, ts, x_traj, y_traj, z_traj, ...
-    exs, eys, ezs, RF_frequency, RF_amplitude, start_time, elapsed_time)
+    exs, eys, ezs, RF_frequency, RF_amplitude, start_time, elapsed_time);
 
 %% FFT analysis
 if((abs(ts(end) - end_time) < (end_time - start_time) * 1e-3) ...
