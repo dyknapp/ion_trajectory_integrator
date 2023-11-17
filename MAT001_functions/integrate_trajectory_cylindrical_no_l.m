@@ -1,4 +1,4 @@
-function  output = integrate_trajectory_cylindrical(rr, zz, vrr, vzz, vOO, ...
+function  output = integrate_trajectory_cylindrical_no_l(rr, zz, vrr, vzz, vOO, ...
                                         potential_maps, voltages, step_times, ...
                                         dimensions, is_electrode, ...
                                         m, q, d, maxdist, maxt)
@@ -72,22 +72,8 @@ function  output = integrate_trajectory_cylindrical(rr, zz, vrr, vzz, vOO, ...
     er_list = [E_r];
     ez_list = [E_z];
 
-    % r needs to be finite for anything to make any sense
-    if abs(r) < 1.0e-6
-        if r == 0
-            r = 1.0e-6;
-        else
-            r = r + sign(r) * 1.0e-6;
-        end
-    end
-    % Also we want to make sure v_O is not crazy large...
-    % Since this can carelessly happen with coordinate system conversions
-    if abs(v_O) > 1.0e+12
-        v_O = sign(v_O) * 1.0e+12;
-    end
-
     % Also: it's a waste of time to calculate acceleration twice!!
-    a_r = E_r * cmr + L^2 / (m^2 * r);
+    a_r = E_r * cmr;
     a_z = E_z * cmr;
 
     while t < maxt
@@ -124,7 +110,7 @@ function  output = integrate_trajectory_cylindrical(rr, zz, vrr, vzz, vOO, ...
                      interpolate_voltages(voltages, t, step_times)); 
 
         % calculate velocities vor next timestep
-        a_r_new = E_r_new * cmr + L^2 / (m^2 * r);
+        a_r_new = E_r_new * cmr;
         a_z_new = E_z_new * cmr;
         v_r = v_r + t_step * (a_r_new + a_r) / 2;
         v_z = v_z + t_step * (a_z_new + a_z) / 2;

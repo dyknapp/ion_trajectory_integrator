@@ -67,10 +67,14 @@ octave-workspace
 
 
 
+
+
+
 # END OF BOILERPLATE
 # LARGE FILES:
 decel_potential.mat
 test_potential.mat
+MISC_happy_hour_example/einzel_assembly_shielded.pa#
 SIM001_data/004_test_assembly_kolomeij_trap/test_setup_assembly.pa#
 SIM001_data/004_test_assembly_kolomeij_trap/test_setup_assembly.pa0
 SIM001_data/004_test_assembly_kolomeij_trap/test_setup_assembly.pa1

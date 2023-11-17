@@ -1,10 +1,10 @@
-function stacked_motion_plots(new_figure, ts, x_traj, y_traj, z_traj, ...
+function t = stacked_motion_plots(new_figure, ts, x_traj, y_traj, z_traj, ...
     exs, eys, ezs, RF_frequency, RF_amplitude, start_time, elapsed_time)
 
 if new_figure
     figure('units','normalized','outerposition',[0 0 1 1])
 end
-tiledlayout(7, 1)
+t = tiledlayout(7, 1);
 nexttile
 plot(ts, x_traj);
 xlim([start_time, ts(end)])

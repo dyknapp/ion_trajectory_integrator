@@ -112,7 +112,7 @@ q = 1.0;                % atomic units
 % The integration scheme used in this software has variable timesteps.  The
 %   timesteps will be adjusted so that whatever value is set below, the
 %   particle should never travel further than that in one timestep.
-maxdist =  0.001;      % mm
+maxdist =  0.0001;      % mm
 
 %% Electrode voltages.
 % I wrote a simplified system for setting the electrode voltages.  If you
@@ -155,24 +155,27 @@ voltages = set_voltage_at_time(8, -2500.0, 0.0, step_times, voltages);
 % Initialize the particle in the center of the trap.
 % We multiply by d (the grid spacing) because the integrator expects
 %   physical units, not indices.
-rr1 = 0.1 + 0.01 * rand(); % mm
+rr1 = 2.5; % mm
 zz1 = d * double(dimensions(2) + 1) * 0.9; % mm
 OO1 = rand() * 2.0 * pi;  % O looks like theta... right?
 
-tiledlayout(4, 2)
-for i = 1:length(electrode_names)
-    nexttile
-    imagesc(d*(0:dimensions_cylindrical(2)), ...
-            d*(0:(dimensions_cylindrical(1)-3)), ...         
-            squeeze(pms_cylindrical(i, 3:end, :)))
-    title(sprintf('Electrode %d', i))
-    axis image
-    colorbar()
-    colormap('turbo')
-    yline(abs(rr1)/d, 'r'); xline(zz1/d, 'r');
-    title(sprintf('Electrode %d', i))
+plot_electrodes = false;
+if plot_electrodes
+    tiledlayout(4, 2)
+    for i = 1:length(electrode_names)
+        nexttile
+        imagesc(d*(0:dimensions_cylindrical(2)), ...
+                d*(0:(dimensions_cylindrical(1)-3)), ...         
+                squeeze(pms_cylindrical(i, 3:end, :)))
+        title(sprintf('Electrode %d', i))
+        axis image
+        colorbar()
+        colormap('turbo')
+        yline(abs(rr1)/d, 'r'); xline(zz1/d, 'r');
+        title(sprintf('Electrode %d', i))
+    end
+    drawnow('update')
 end
-drawnow('update')
 
 % If we put the ion at the center of the trap with zero initial speed, it
 %   will just sit there quietly.  A nice way to give it some speed is by
@@ -193,22 +196,21 @@ vzz1 = v * cos(theta);                 % mm / us
 vrr1 = ((cos(OO1) * vxx1) + (sin(OO1) * vyy1));
 vOO1 = ((cos(OO1) * vyy1) - (sin(OO1) * vxx1)) / rr1;
 
-vOO1 = 100000.0;
 
 %% Integration: MATLAB version
 fprintf("Simulation started.\n")
 tic
-ion_trajectory =  integrate_trajectory_cylindrical(rr1, zz1, OO1, vrr1, vzz1, vOO1, ...
+% NOTE: CYLINDRICAL COORDINATE SIMULATIONS WITH ANGULAR MOMENTUM ARE
+% IMPLEMENTED, BUT NOT VERY GOOD...  USE AT YOUR OWN DISCRETION
+ion_trajectory =  integrate_trajectory_cylindrical_no_l(rr1, zz1, vrr1, vzz1, vOO1, ...
                                       pms_cylindrical, voltages, step_times, ...
-                                      dimensions_cylindrical, is_electrode, m, q, d, ...
+                                      dimensions_cylindrical, is_electrode_cylindrical, m, q, d, ...
                                       maxdist, end_time);
 r_traj = ion_trajectory.r;
 z_traj = ion_trajectory.z;
-O_traj = ion_trajectory.O;
 ts     = ion_trajectory.t;
 vrs    = ion_trajectory.vr;
 vzs    = ion_trajectory.vz;
-vOs    = ion_trajectory.vO;
 ers    = ion_trajectory.er;
 ezs    = ion_trajectory.ez;
 its    = length(ts);
@@ -228,3 +230,25 @@ xlabel('Time (us)')
 title(sprintf('Trajectory of ion accelerated at %.1gus', turn_on_time))
 xline(turn_on_time);
 hold off
+
+
+%%
+
+figure
+imagesc(mirror_r(is_electrode_cylindrical))
+dims = size(is_electrode_cylindrical);
+imagesc((0:dims(2)-1)*d, (-(dims(1)-1):(dims(1)-1))*d, mirror_r(~is_electrode_cylindrical))
+xlabel("r (mm)"); ylabel("z (mm)"); set(gca,'YDir','normal'); colormap("gray");
+axis image
+
+hold on
+plot(z_traj, r_traj, '-r');
+hold off
+
+function output = mirror_r(input)
+    dims = size(input);
+    output = zeros(dims .* [2 1] - [1 0]);
+    for r = -(dims(1)-1):(dims(1)-1)
+        output(r + dims(1), :) = input(abs(r) + 1, :);
+    end
+end
