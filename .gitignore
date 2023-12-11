@@ -70,6 +70,8 @@ octave-workspace
 
 
 
+
+
 # END OF BOILERPLATE
 # LARGE FILES:
 decel_potential.mat
@@ -115,3 +117,4 @@ SIM001_data/004_test_assembly_kolomeij_trap/test_setup_assembly.pa8
 SIM001_data/004_test_assembly_kolomeij_trap/test_setup_assembly.pa8.patxt
 SIM001_data/004_test_assembly_kolomeij_trap/test_setup_assembly.pa9
 SIM001_data/004_test_assembly_kolomeij_trap/test_setup_assembly.pa9.patxt
+SIM001_data/007_essentials_only/eo_shield.patxt

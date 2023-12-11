@@ -82,7 +82,7 @@ q = 1.0;                % atomic units
 % The integration scheme used in this software has variable timesteps.  The
 %   timesteps will be adjusted so that whatever value is set below, the
 %   particle should never travel further than that in one timestep.
-maxdist =  0.0001;      % mm
+maxdist =  0.001;      % mm
 
 %% Electrode voltages.
 % I wrote a simplified system for setting the electrode voltages.  If you
@@ -169,20 +169,49 @@ vyy1 = v * sin(theta) * sin(phi);      % mm / us
 vzz1 = v * cos(theta);                 % mm / us
 
 %% Integration: MATLAB version
-fprintf("Simulation started.\n")
+% fprintf("Simulation started.\n")
+% tic
+% ion_trajectory =  integrate_trajectory(xx1, yy1, zz1, vxx1, vyy1, vzz1, ...
+%                                       potential_maps, voltages, step_times, ...
+%                                       dimensions, is_electrode, m, q, d, ...
+%                                       maxdist, end_time);
+% x_traj = ion_trajectory.x;
+% y_traj = ion_trajectory.y;
+% z_traj = ion_trajectory.z;
+% ts     = ion_trajectory.t;
+% exs    = ion_trajectory.ex;
+% eys    = ion_trajectory.ey;
+% ezs    = ion_trajectory.ez;
+% its    = length(ts);
+% elapsed_time = toc;
+% fprintf("Simulation took %.3gs (%d it/s)\n", elapsed_time, round(its / elapsed_time));
+
+%% Integration: FORTRAN version
+% Currently limited to a set number of integration steps, specified as
+% MAX_TRAJECTORY_POINTS in the FORTRAN and C files.
 tic
-ion_trajectory =  integrate_trajectory(xx1, yy1, zz1, vxx1, vyy1, vzz1, ...
-                                      potential_maps, voltages, step_times, ...
-                                      dimensions, is_electrode, m, q, d, ...
-                                      maxdist, end_time);
-x_traj = ion_trajectory.x;
-y_traj = ion_trajectory.y;
-z_traj = ion_trajectory.z;
-ts     = ion_trajectory.t;
-exs    = ion_trajectory.ex;
-eys    = ion_trajectory.ey;
-ezs    = ion_trajectory.ez;
-its    = length(ts);
+potential_maps_size = size(potential_maps);
+potential_maps = reshape(potential_maps, [potential_maps_size(1), dimensions]);
+[x_traj, y_traj, z_traj, ts, exs, eys, ezs, its] ...
+    = trajectory_integration_module(xx1, yy1, zz1, vxx1, vyy1, vzz1, ...
+                      potential_maps, voltages, step_times, ...
+                      time_steps, dimensions, int32(is_electrode), ...
+                      length(electrode_names), m, q, d, maxdist, end_time);
+
+% For simplicity, the FORTRAN integrator assumes that it has carried out
+% the maximum permissible number of integration steps.  If the particle has
+% died or the simulation has ended before this, we need to trim down the
+% output to remove the empty sections at the ends.
+its = int32(its);
+original_length = length(ts);
+x_traj = x_traj(1:its);
+y_traj = y_traj(1:its);
+z_traj = z_traj(1:its);
+ts     =     ts(1:its);
+exs    =    exs(1:its);
+eys    =    eys(1:its);
+ezs    =    ezs(1:its);
+
 elapsed_time = toc;
 fprintf("Simulation took %.3gs (%d it/s)\n", elapsed_time, round(its / elapsed_time));
 
