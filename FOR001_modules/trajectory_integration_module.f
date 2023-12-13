@@ -489,7 +489,268 @@ C     Run the trajectory simulations
             itss(i) = dble(its)
       end do
       end subroutine
+
+      subroutine check_dead_cloud(particles, dead, xs, ys, zs, d,
+     &                            dimensions, is_electrode)
+      integer(c_int), intent(in)
+     &      :: particles
+      real(c_double), intent(in) 
+     &      :: d
+      real(c_double), dimension(particles), intent(in)
+     &      :: xs, ys, zs
+      integer(c_int), dimension(3), intent(in) 
+     &      :: dimensions
+      integer(c_int), intent(in),
+     &      dimension(dimensions(1), dimensions(2), dimensions(3))
+     &      :: is_electrode
+      logical, dimension(particles), intent(inout)
+     &      :: dead
+
+      do i = 1,particles
+            if (NOT(dead(i))) then
+                  dead(i) = 
+     &                  is_dead(dimensions, is_electrode, x, y, z, d)
+            end if
+      end do
+      end subroutine check_dead_cloud
       
+      subroutine fly_cloud(   record_interval, interps, particles, 
+     &                        xxs, yys, zzs, vxxs, vyys, vzzs,
+     &                        potential_maps, voltages, step_times_in,
+     &                        time_steps, dimensions, is_electrode,
+     &                        n_electrodes, ms, qs, din, maxdist, maxt,
+     &                        x_trajs, y_trajs, z_trajs, tss, itss)
+     & bind(c, name = "fly_cloud")
+      integer(c_int), intent(in)
+     &      :: particles, interps, time_steps, n_electrodes
+      real(c_double), intent(in)
+     &      :: din, maxdist, maxt, record_interval
+      real(c_double), dimension(particles), intent(in) 
+     &      :: xxs, yys, zzs, vxxs, vyys, vzzs, ms, qs
+      real(c_double), dimension(time_steps, n_electrodes), intent(in) 
+     &      :: voltages
+      integer(c_int), dimension(3), intent(in)
+     &      :: dimensions
+      integer(c_int), intent(in),
+     &      dimension(dimensions(1), dimensions(2), dimensions(3))
+     &      :: is_electrode
+      real(c_double), 
+     &      dimension(n_electrodes, dimensions(1), 
+     &      dimensions(2), dimensions(3)), intent(in) 
+     &      :: potential_maps
+      real(c_double), dimension(time_steps), intent(in) 
+     &      :: step_times_in
+      real(c_double), dimension(particles, interps), intent(out) 
+     &      :: x_trajs, y_trajs, z_trajs, tss
+      real(c_double), dimension(particles), intent(out) 
+     &      :: itss
+
+C     Local variables
+      real(c_double), dimension(time_steps) 
+     &      :: step_times
+      real(c_double), dimension(particles)
+     &      :: xs, ys, zs, vxs, vys, vzs, cmrs,
+     &         exs, eys, ezs, exs_new, eys_new, ezs_new, d
+      real(c_double), dimension(particles)
+     &      :: axs, ays, azs
+      real(c_double) 
+     &      :: t, mdist, mt, c, tv, ta, tstep, distance_sqrd, distance
+     &         xdiff, ydiff, zdiff, coulomb_force
+      integer 
+     &      :: idx, iter, alive
+      logical, dimension(particles)
+     &      :: dead
+      
+C     Unit conversions.  For simplicity, we work with SI units within 
+C           this function.
+      ! positions, velocities, cmrs
+      do i = 1,particles
+            xs(i)  = xxs  * 1.0e-3 ! mm -> m
+            ys(i)  = yys  * 1.0e-3 ! mm -> m
+            zs(i)  = zzs  * 1.0e-3 ! mm -> m
+            vxs(i) = vxxs * 1.0e+3 ! mm/us -> m/s
+            vys(i) = vyys * 1.0e+3 ! mm/us -> m/s
+            vzs(i) = vzzs * 1.0e+3 ! mm/us -> m/s
+            cmr    =   ((1.602176634e-19) * qs(i)) 
+     &               / ((1.660539067e-27) * ms(i))
+      end do
+      ! times
+      do idx = 1, time_steps
+            step_times(idx) = step_times_in(idx) * 1.0e-6
+      end do
+      ! other scalars
+      t     = step_times(1)        ! us -> s
+      d     = din * 1e-3           ! mm -> m
+      mdist = maxdist * 1.0e-3     ! us -> s
+      mt    = maxt * 1.0e-6        ! us -> s
+
+      call field_at(t, voltages, step_times, 
+     &              n_electrodes, time_steps,
+     &              xs(idx), ys(idx), zs(idx), d,
+     &              dimensions, potential_maps,
+     &              exs(idx), eys(idx), ezs(idx))
+      do while ((t < mt) .and. (iter < MAX_TRAJECTORY_POINTS))
+            call check_dead_cloud(particles, dead, xs, ys, zs, d,
+     &                            dimensions, is_electrode)
+            iter = iter + 1
+            alive = 0
+            tstep = mt * 1.0e-3
+            do idx = 1,particles
+                  if (NOT(dead(idx))) then
+                        alive = alive + 1
+                        axs(idx) = (exs(idx)*exs(idx)) * cmrs(i)
+                        ays(idx) = (eys(idx)*eys(idx)) * cmrs(i)
+                        azs(idx) = (ezs(idx)*ezs(idx)) * cmrs(i)
+
+                        ! Coulomb interaction, Newton's third law
+                        do j = 1,idx
+                              if (NOT(dead(j))) then
+                                    xdiff = (xs(idx) - xs(j))
+                                    ydiff = (ys(idx) - ys(j))
+                                    zdiff = (zs(idx) - zs(j))
+                                    distance_sqrd =
+     &                                      xdiff * xdiff
+     &                                    + ydiff * ydiff
+     &                                    + zdiff * zdiff
+                                    distance = SQRT(distance_sqrd)
+                                    coulomb_force =
+     &                                      1 / ( 8.8541878128e-12
+     &                                    * 4.0 * 3.141592653589793 )
+     &                                    * qs(idx) * qs
+     &                                    / distance_sqrd
+                                    axs(idx) = axs(idx)
+     &                                    + coulomb_force
+     &                                    * xdiff / distance
+                                    ays(idx) = ays(idx)
+     &                                    + coulomb_force
+     &                                    * ydiff / distance
+                                    azs(idx) = azs(idx)
+     &                                    + coulomb_force
+     &                                    * zdiff / distance
+                                    axs(j) = axs(j)
+     &                                    - coulomb_force
+     &                                    * xdiff / distance
+                                    ays(j) = ays(j)
+     &                                    - coulomb_force
+     &                                    * ydiff / distance
+                                    azs(j) = azs(j)
+     &                                    - coulomb_force
+     &                                    * zdiff / distance
+                              end if
+
+                              ! What should the timestep be?
+                              a = SQRT(axs(idx) + ays(idx) + azs(idx))
+                              v = SQRT(  vxs(idx)*vxs(idx)
+     &                                 + vys(idx)*vys(idx)
+     &                                 + vzs(idx)*vzs(idx))
+                              a = a + 1.0e-15
+                              v = v + 1.0e-15
+                              tv = mdist / v
+                              ta = SQRT(2.0 * mdist / a)
+                              if (tstep .GT. tv * ta / (tv + ta)) then
+                                    tstep = tv * ta / (tv + ta)
+                              end if
+                        end do
+                        ! Advance time
+                        t = t + tstep
+
+                  end if
+                  do idx = 1,particles
+                        if (NOT(dead(idx))) then
+                              xs(idx) = xs(idx) 
+                                  + tstep * vxs(idx)
+                            + tstep*tstep * SQRT(axs(idx)) * cmr/2
+                              ys(idx) = ys(idx) 
+                                  + tstep * vys(idx)
+                            + tstep*tstep * SQRT(ays(idx)) * cmr/2
+                              zs(idx) = zs(idx) 
+                                  + tstep * vzs(idx)
+                            + tstep*tstep * SQRT(azs(idx)) * cmr/2
+                      end if
+                end do
+                call check_dead_cloud(particles, dead, 
+     &                                xs, ys, zs, d,
+     &                                dimensions, is_electrode)
+                do idx = 1,particles
+                      if (NOT(dead(idx))) then
+                          call field_at(t, voltages, step_times, 
+     &                        n_electrodes, time_steps,
+     &                        xs(idx), ys(idx), zs(idx), d,
+     &                        dimensions, potential_maps,
+     &                        exs(idx), eys(idx), ezs(idx))
+                          vxs(i) =   vxs(i) 
+                                   + tstep
+                                   * (exs(idx) * cmrs(idx) + axs(idx))/2
+                          vys(i) =   vys(i) 
+                                   + tstep
+                                   * (eys(idx) * cmrs(idx) + ays(idx))/2
+                          vzs(i) =   vzs(i) 
+                                   + tstep
+                                   * (ezs(idx) * cmrs(idx) + azs(idx))/2
+                      end if
+                end do
+
+                  ! If nobody is left, end the simulation
+                  if (alive .EQ. 0) then
+                        goto 2
+                  end if
+            end do
+      end do
+ 2    continue
+
+C           Record current state before it gets modified by the 
+C                 integration step
+            x_traj(iter) = x  * 1.0e+3
+            y_traj(iter) = y  * 1.0e+3
+            z_traj(iter) = z  * 1.0e+3
+            exs(iter)    = ex * 1.0e-3
+            eys(iter)    = ey * 1.0e-3
+            ezs(iter)    = ez * 1.0e-3
+            ts(iter)     = t  * 1.0e+6
+
+C           Integration timestep calculation
+            a = SQRT(ex*ex + ey*ey + ez*ez) * cmr
+            v = SQRT(vx*vx + vy*vy + vz*vz)
+
+            a = a + 1.0e-15
+            v = v + 1.0e-15
+            tv = mdist / v
+            ta = SQRT(2.0 * mdist / a)
+            tstep = tv * ta / (tv + ta)
+            tstep = MIN(tstep, mt * 1.0e-3)
+            t = t + tstep
+
+C           Integration step
+            x = x + tstep * vx + tstep * tstep * ex * cmr / 2
+            y = y + tstep * vy + tstep * tstep * ey * cmr / 2
+            z = z + tstep * vz + tstep * tstep * ez * cmr / 2
+
+
+            call field_at(t, voltages, step_times, 
+     &            n_electrodes, time_steps,
+     &            x, y, z, d, potential_maps, dimensions,
+     &            ex_new, ey_new, ez_new)
+
+C           Check if particle is alive
+            dead = is_dead(dimensions, is_electrode, x, y, z, d)
+            if (dead) then
+                  t = mt;
+            end if
+
+            vx = vx + tstep * (ex_new + ex) * cmr / 2
+            vy = vy + tstep * (ey_new + ey) * cmr / 2
+            vz = vz + tstep * (ez_new + ez) * cmr / 2
+            ex = ex_new
+            ey = ey_new
+            ez = ez_new
+      end do
+      its = dble(iter)
+      end subroutine fly_cloud
+
+
+
+
+
       subroutine fly_aqs(amp_scales, a_res, off_scales, o_res, reps, 
      &                        xx, yy, zz, vxx, vyy, vzz,
      &                        rf_potential, endcap_potential,
