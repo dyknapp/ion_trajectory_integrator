@@ -513,6 +513,48 @@ C     Run the trajectory simulations
             end if
       end do
       end subroutine check_dead_cloud
+
+      subroutine coulomb_interaction(i, j, particles, qs, ms
+     &                               axs, ays, azs,
+     &                               xs, ys, zs)
+      integer, intent(in) 
+     &      :: i, j, particles
+      real(c_double), dimensions(particles), intent(in)
+     &      :: xs, ys, zs, qs, ms
+      real(c_double), dimensions(particles), intent(inout)
+     &      :: axs, ays, azs
+      xdiff = (xs(i) - xs(j))
+      ydiff = (ys(i) - ys(j))
+      zdiff = (zs(i) - zs(j))
+      distance_sqrd =
+     &        xdiff * xdiff
+     &      + ydiff * ydiff
+     &      + zdiff * zdiff
+      distance = SQRT(distance_sqrd)
+      coulomb_force =
+     &        1 / ( 8.8541878128e-12
+     &      * 4.0 * 3.141592653589793 )
+     &      * qs(i) * qs
+     &      / distance_sqrd
+      axs(idx) = axs(i)
+     &      + coulomb_force
+     &      * xdiff / distance
+      ays(idx) = ays(i)
+     &      + coulomb_force
+     &      * ydiff / distance
+      azs(idx) = azs(i)
+     &      + coulomb_force
+     &      * zdiff / distance
+      axs(j) = axs(j)
+     &      - coulomb_force
+     &      * xdiff / distance
+      ays(j) = ays(j)
+     &      - coulomb_force
+     &      * ydiff / distance
+      azs(j) = azs(j)
+     &      - coulomb_force
+     &      * zdiff / distance
+      end subroutine coulomb_interaction
       
       subroutine fly_cloud(   record_interval, interps, particles, 
      &                        xxs, yys, zzs, vxxs, vyys, vzzs,
@@ -552,7 +594,7 @@ C     Local variables
      &      :: xs, ys, zs, vxs, vys, vzs, cmrs,
      &         exs, eys, ezs, exs_new, eys_new, ezs_new, d
       real(c_double), dimension(particles)
-     &      :: axs, ays, azs
+     &      :: axs, ays, azs, axs_new, ays_new, azs_new
       real(c_double) 
      &      :: t, mdist, mt, c, tv, ta, tstep, distance_sqrd, distance
      &         xdiff, ydiff, zdiff, coulomb_force
@@ -584,11 +626,15 @@ C           this function.
       mdist = maxdist * 1.0e-3     ! us -> s
       mt    = maxt * 1.0e-6        ! us -> s
 
-      call field_at(t, voltages, step_times, 
-     &              n_electrodes, time_steps,
-     &              xs(idx), ys(idx), zs(idx), d,
-     &              dimensions, potential_maps,
-     &              exs(idx), eys(idx), ezs(idx))
+      exs = 0.0
+      eys = 0.0
+      ezs = 0.0
+
+C       call field_at(t, voltages, step_times, 
+C      &              n_electrodes, time_steps,
+C      &              xs(idx), ys(idx), zs(idx), d,
+C      &              dimensions, potential_maps,
+C      &              exs(idx), eys(idx), ezs(idx))
       do while ((t < mt) .and. (iter < MAX_TRAJECTORY_POINTS))
             call check_dead_cloud(particles, dead, xs, ys, zs, d,
      &                            dimensions, is_electrode)
@@ -605,37 +651,9 @@ C           this function.
                         ! Coulomb interaction, Newton's third law
                         do j = 1,idx
                               if (NOT(dead(j))) then
-                                    xdiff = (xs(idx) - xs(j))
-                                    ydiff = (ys(idx) - ys(j))
-                                    zdiff = (zs(idx) - zs(j))
-                                    distance_sqrd =
-     &                                      xdiff * xdiff
-     &                                    + ydiff * ydiff
-     &                                    + zdiff * zdiff
-                                    distance = SQRT(distance_sqrd)
-                                    coulomb_force =
-     &                                      1 / ( 8.8541878128e-12
-     &                                    * 4.0 * 3.141592653589793 )
-     &                                    * qs(idx) * qs
-     &                                    / distance_sqrd
-                                    axs(idx) = axs(idx)
-     &                                    + coulomb_force
-     &                                    * xdiff / distance
-                                    ays(idx) = ays(idx)
-     &                                    + coulomb_force
-     &                                    * ydiff / distance
-                                    azs(idx) = azs(idx)
-     &                                    + coulomb_force
-     &                                    * zdiff / distance
-                                    axs(j) = axs(j)
-     &                                    - coulomb_force
-     &                                    * xdiff / distance
-                                    ays(j) = ays(j)
-     &                                    - coulomb_force
-     &                                    * ydiff / distance
-                                    azs(j) = azs(j)
-     &                                    - coulomb_force
-     &                                    * zdiff / distance
+            call coulomb_interaction(i, j, particles, qs, ms
+     &                               axs, ays, azs,
+     &                               xs, ys, zs)
                               end if
 
                               ! What should the timestep be?
@@ -673,27 +691,33 @@ C           this function.
      &                                dimensions, is_electrode)
                 do idx = 1,particles
                       if (NOT(dead(idx))) then
-                          call field_at(t, voltages, step_times, 
-     &                        n_electrodes, time_steps,
-     &                        xs(idx), ys(idx), zs(idx), d,
-     &                        dimensions, potential_maps,
-     &                        exs(idx), eys(idx), ezs(idx))
+C                           call field_at(t, voltages, step_times, 
+C      &                        n_electrodes, time_steps,
+C      &                        xs(idx), ys(idx), zs(idx), d,
+C      &                        dimensions, potential_maps,
+C      &                        exs(idx), eys(idx), ezs(idx))
+            call coulomb_interaction(i, j, particles, qs, ms
+     &                               axs_new, ays_new, azs_new,
+     &                               xs, ys, zs)
+                          axs_new(idx) = exs(idx) * cmrs(idx)
+                          ays_new(idx) = eys(idx) * cmrs(idx)
+                          azs_new(idx) = ezs(idx) * cmrs(idx)
                           vxs(i) =   vxs(i) 
                                    + tstep
-                                   * (exs(idx) * cmrs(idx) + axs(idx))/2
+                                   * (axs_new(idx) + axs(idx))/2
                           vys(i) =   vys(i) 
                                    + tstep
-                                   * (eys(idx) * cmrs(idx) + ays(idx))/2
+                                   * (ays_new(idx) + ays(idx))/2
                           vzs(i) =   vzs(i) 
                                    + tstep
-                                   * (ezs(idx) * cmrs(idx) + azs(idx))/2
+                                   * (azs_new(idx) + azs(idx))/2
                       end if
                 end do
 
-                  ! If nobody is left, end the simulation
-                  if (alive .EQ. 0) then
-                        goto 2
-                  end if
+                ! If nobody is left, end the simulation
+                if (alive .EQ. 0) then
+                      goto 2
+                end if
             end do
       end do
  2    continue
