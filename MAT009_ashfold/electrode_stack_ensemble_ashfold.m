@@ -18,17 +18,17 @@
 
 % Directory information
 % Path to simion folder containing potential files *.patxt
-simion_path = "SIM001_data/001_linear_paul_trap";
+simion_path = "SIM001_data\009_ashfold_vmi_stack";
 
 % Names of individual files containing electrodes' potentials
-electrode_names = ["backingplate.patxt", ...
-                   "electrode1.patxt", ...
-                   "electrode2.patxt", ...
-                   "electrode3.patxt", ...
-                   "electrode4.patxt", ...
-                   "electrode5.patxt", ...
-                   "electrode6.patxt", ...
-                   "detector.patxt", ...
+electrode_names = ["ion_optics_assy-ashfold-A0.0.pa1.patxt", ...
+                   "ion_optics_assy-ashfold-A0.0.pa2.patxt", ...
+                   "ion_optics_assy-ashfold-A0.0.pa3.patxt", ...
+                   "ion_optics_assy-ashfold-A0.0.pa4.patxt", ...
+                   "ion_optics_assy-ashfold-A0.0.pa5.patxt", ...
+                   "ion_optics_assy-ashfold-A0.0.pa6.patxt", ...
+                   "ion_optics_assy-ashfold-A0.0.pa7.patxt", ...
+                   "ion_optics_assy-ashfold-A0.0.pa8.patxt", ...
                   ];
 
 % Where does the data in the patxt file start?
@@ -82,7 +82,10 @@ q = 1.0;                % atomic units
 % The integration scheme used in this software has variable timesteps.  The
 %   timesteps will be adjusted so that whatever value is set below, the
 %   particle should never travel further than that in one timestep.
-maxdist =  0.001;      % mm
+maxdist =  0.01;      % mm
+n_particles = 2^10;
+cloud_radius = 0.5;
+T = 0.1;
 
 %% Electrode voltages.
 % I wrote a simplified system for setting the electrode voltages.  If you
@@ -115,17 +118,17 @@ voltages = zeros([time_steps, length(electrode_names)]);
 %
 % After turn_on_time (us), set the potential of electrode1.patxt to 25V
 turn_on_time = 0.1;
-voltages = set_voltage_at_time(2, 25.0, turn_on_time, step_times, voltages);
+voltages = set_voltage_at_time(1, 25.0, turn_on_time, step_times, voltages);
 % Always have the detector at -2.5kV
 voltages = set_voltage_at_time(8, -2500.0, 0.0, step_times, voltages);
 
 % If you are curious to see what the potential from electrode1 would be:
-potential_maps_reshaped = reshape(potential_maps, [length(electrode_names) dimensions]);
-imagesc(squeeze(potential_maps_reshaped(2,round(dimensions(1)/2),:,:)))
-axis image
-colorbar()
-colormap('turbo')
-clear potential_maps_reshaped
+% potential_maps_reshaped = reshape(potential_maps, [length(electrode_names) dimensions]);
+% imagesc(squeeze(potential_maps_reshaped(2,round(dimensions(1)/2),:,:)))
+% axis image
+% colorbar()
+% colormap('turbo')
+% clear potential_maps_reshaped
 %% Initializing
 % We need to choose the particle's initial phase space position.
 
@@ -133,108 +136,92 @@ clear potential_maps_reshaped
 % We multiply by d (the grid spacing) because the integrator expects
 %   physical units, not indices.
 xx1 = d * double(dimensions(1) + 1) / 2.0; % mm
-yy1 = d * double(dimensions(2) + 1) * 0.9; % mm
-zz1 = d * double(dimensions(3) + 1) / 2.0; % mm
+yy1 = d * double(dimensions(2) + 1) / 2.0; % mm
+zz1 = d * double(dimensions(3) + 1) * 0.945; % mm
 
 % If you are curious to see what the potential from electrode1 would be, 
 % compared to the starting point:
 potential_maps_reshaped = reshape(potential_maps, [length(electrode_names) dimensions]);
 
-tiledlayout(4, 2)
-for i = 1:length(electrode_names)
-    nexttile
-    imagesc(squeeze(potential_maps_reshaped(i,:,:,round(dimensions(3)/2))))
-    title(sprintf('Electrode %d', i))
-    axis image
-    colorbar()
-    colormap('turbo')
-    yline(zz1/d, 'r'); xline(yy1/d, 'r');
-    title(sprintf('Electrode %d', i))
+% tiledlayout(4, 2)
+% for i = 1:length(electrode_names)
+%     nexttile
+%     imagesc(squeeze(potential_maps_reshaped(i,round(dimensions(1)/2),:,:)))
+%     title(sprintf('Electrode %d', i))
+%     axis image
+%     colorbar()
+%     colormap('turbo')
+%     yline(yy1/d, 'r'); xline(zz1/d, 'r');
+%     title(sprintf('Electrode %d', i))
+% end
+% drawnow('update')
+
+
+vxxs = zeros([1 n_particles]);
+vyys = zeros([1 n_particles]);
+vzzs = zeros([1 n_particles]);
+xxs  = xx1 + normrnd(0, cloud_radius, [1 n_particles]);
+yys  = yy1 + normrnd(0, cloud_radius, [1 n_particles]);
+zzs  = zz1 + normrnd(0, cloud_radius, [1 n_particles]);
+
+dissoc_speed = 10.0; %mm / us
+for idx = 1:n_particles
+    % If we put the ion at the center of the trap with zero initial speed, it
+    %   will just sit there quietly.  A nice way to give it some speed is by
+    %   specifying a temperature and choosing a speed based on that.
+    maxwell = @(v) maxwell_pdf(v, m, T);
+    % Maxwell-Boltzmann distribution speeds
+    v = general_distribution(1, 1, 10000, maxwell) * 1.0e-3;
+    % Uniform distribution direcitions
+    theta = 2 * pi * rand();
+    phi = 2 * pi * rand();
+    % Convert speed & direction -> velocity
+    vxxs(idx) = v * sin(theta) * cos(phi);      % mm / us
+    vyys(idx) = v * sin(theta) * sin(phi);      % mm / us
+    vzzs(idx) = v * cos(theta);                 % mm / us
+
+    vxxs(idx) = vxxs(idx) + dissoc_speed * (-1)^idx;
 end
-drawnow('update')
 
-% If we put the ion at the center of the trap with zero initial speed, it
-%   will just sit there quietly.  A nice way to give it some speed is by
-%   specifying a temperature and choosing a speed based on that.
-T = 0.1;
-maxwell = @(v) maxwell_pdf(v, m, T);
-% Maxwell-Boltzmann distribution speeds
-v = general_distribution(1, 1, 10000, maxwell) * 1.0e-3;
-% Uniform distribution directions
-theta = 2 * pi * rand();
-phi = 2 * pi * rand();
-% Convert speed & direction -> velocity
-vxx1 = v * sin(theta) * cos(phi);      % mm / us
-vyy1 = v * sin(theta) * sin(phi);      % mm / us
-vzz1 = v * cos(theta);                 % mm / us
-
-%% Integration: MATLAB version
-% fprintf("Simulation started.\n")
-% tic
-% ion_trajectory =  integrate_trajectory(xx1, yy1, zz1, vxx1, vyy1, vzz1, ...
-%                                       potential_maps, voltages, step_times, ...
-%                                       dimensions, is_electrode, m, q, d, ...
-%                                       maxdist, end_time);
-% x_traj = ion_trajectory.x;
-% y_traj = ion_trajectory.y;
-% z_traj = ion_trajectory.z;
-% ts     = ion_trajectory.t;
-% exs    = ion_trajectory.ex;
-% eys    = ion_trajectory.ey;
-% ezs    = ion_trajectory.ez;
-% its    = length(ts);
-% elapsed_time = toc;
-% fprintf("Simulation took %.3gs (%d it/s)\n", elapsed_time, round(its / elapsed_time));
-
-%% Integration: FORTRAN version
-% Currently limited to a set number of integration steps, specified as
-% MAX_TRAJECTORY_POINTS in the FORTRAN and C files.
+%% Integration
+fprintf("Simulation started.\n")
 tic
 potential_maps_size = size(potential_maps);
 potential_maps = reshape(potential_maps, [potential_maps_size(1), dimensions]);
-[x_traj, y_traj, z_traj, ts, exs, eys, ezs, its] ...
-    = trajectory_integration_module(xx1, yy1, zz1, vxx1, vyy1, vzz1, ...
-                      potential_maps, voltages, step_times, ...
-                      time_steps, dimensions, int32(is_electrode), ...
-                      length(electrode_names), m, q, d, maxdist, end_time);
-
-% For simplicity, the FORTRAN integrator assumes that it has carried out
-% the maximum permissible number of integration steps.  If the particle has
-% died or the simulation has ended before this, we need to trim down the
-% output to remove the empty sections at the ends.
-its = int32(its);
-original_length = length(ts);
-x_traj = x_traj(1:its);
-y_traj = y_traj(1:its);
-z_traj = z_traj(1:its);
-ts     =     ts(1:its);
-exs    =    exs(1:its);
-eys    =    eys(1:its);
-ezs    =    ezs(1:its);
-
+[xss, yss, zss, tss, itss] = fly_ensemble(4, n_particles, xxs, yys, zzs, vxxs, vyys, vzzs, ...
+                                      potential_maps, voltages, step_times, ...
+                                      time_steps, dimensions, int32(is_electrode), length(electrode_names), m, q, d, ...
+                                      maxdist, end_time);
 elapsed_time = toc;
-fprintf("Simulation took %.3gs (%d it/s)\n", elapsed_time, round(its / elapsed_time));
+fprintf("Simulation took %.3gs (%d it/s)\n", elapsed_time, round(sum(itss) / elapsed_time));
 
 %%
+image_res = 1024;
+point_size = 3;
+image = zeros(image_res);
+coords = zeros([image_res image_res 2]);
+for idx1 = 1:image_res
+    for idx2 = 1:image_res
+        coords(idx1, idx2, :) = d * [double(idx1 * dimensions(1)) / double(image_res), double(idx2 * dimensions(2)) / double(image_res)];
+    end
+end
+parfor idx = 1:n_particles
+    image = image + exp((-double(coords(:, :, 1) - xss(idx, end)).^2 ...
+                         -double(coords(:, :, 2) - yss(idx, end)).^2) / 0.5);
+end
+imshow(image / max(image(:)));
 
-figure
-hold on
-plot(ts, y_traj);
-plot(ts, eys);
-legend('Y-trajectory', 'Y E-field', 'Location', 'southwest')
-ylabel('Trajectory (mm) & E-field (V/m)')
-xlabel('Time (us)')
-title(sprintf('Trajectory of ion accelerated at %.1gus', turn_on_time))
-xline(turn_on_time);
-hold off
-
-%%
-
-figure
-imagesc((0:dimensions(2)-1)*d, (0:dimensions(3)-1)*d, squeeze(is_electrode(round(dimensions(1)/2), :, :))')
-xlabel("y (mm)"); ylabel("z (mm)"); set(gca,'YDir','normal'); colormap("gray");
-axis image
-
-hold on
-plot(y_traj, z_traj, '-r');
-hold off
+% %%
+% figure
+% [N,C] = hist3([xss(:, end), zss(:, end)],'CDataMode','auto');
+% wx = C{1}(:);
+% wy = C{2}(:);
+% H = pcolor(wx, wy, N');
+% set(H,'edgecolor','none');
+% view(2)
+% shading interp
+% axis image
+% box on
+% colormap jet
+% 
+% % contourf(C{1}, C{2}, N)

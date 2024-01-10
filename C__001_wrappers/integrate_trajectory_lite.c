@@ -27,53 +27,47 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
 
 
       // INPUTS
-      const double xx = mxGetScalar(prhs[0]);
-      const double yy = mxGetScalar(prhs[1]);
-      const double zz = mxGetScalar(prhs[2]);
-      const double vxx = mxGetScalar(prhs[3]);
-      const double vyy = mxGetScalar(prhs[4]);
-      const double vzz = mxGetScalar(prhs[5]); // 6
+      const int    pts = mxGetScalar(prhs[0]);
+      const double xx  = mxGetScalar(prhs[1]);
+      const double yy  = mxGetScalar(prhs[2]);
+      const double zz  = mxGetScalar(prhs[3]);
+      const double vxx = mxGetScalar(prhs[4]);
+      const double vyy = mxGetScalar(prhs[5]);
+      const double vzz = mxGetScalar(prhs[6]); // 6
 
-      mxDouble *potential_maps = mxGetDoubles(prhs[6]);
-      mxDouble *voltages = mxGetDoubles(prhs[7]);
-      mxDouble *step_times_in = mxGetDoubles(prhs[8]); //3
+      mxDouble *potential_maps = mxGetDoubles(prhs[7]);
+      mxDouble *voltages = mxGetDoubles(prhs[8]);
+      mxDouble *step_times_in = mxGetDoubles(prhs[9]); //3
 
-      const int time_steps = mxGetScalar(prhs[9]);
-      mxInt32 *dimensions = mxGetInt32s(prhs[10]);
-      mxInt32 *is_electrode = mxGetInt32s(prhs[11]); // 3
+      const int time_steps = mxGetScalar(prhs[10]);
+      mxInt32 *dimensions = mxGetInt32s(prhs[11]);
+      mxInt32 *is_electrode = mxGetInt32s(prhs[12]); // 3
 
-      const int n_electrodes = mxGetScalar(prhs[12]);
-      const double m = mxGetScalar(prhs[13]);
-      const double q = mxGetScalar(prhs[14]);
-      const double din = mxGetScalar(prhs[15]);
-      const double maxdist = mxGetScalar(prhs[16]);
-      const double maxt = mxGetScalar(prhs[17]);  // 6 (sum: 18)
-      const double data_t_interval = mxGetScalar(prhs[18]);
-
-      size_t out_size = ceil(maxt / data_t_interval);
-      int out_length = (int)out_size;
+      const int n_electrodes = mxGetScalar(prhs[13]);
+      const double m = mxGetScalar(prhs[14]);
+      const double q = mxGetScalar(prhs[15]);
+      const double din = mxGetScalar(prhs[16]);
+      const double maxdist = mxGetScalar(prhs[17]);
+      const double maxt = mxGetScalar(prhs[18]);  // 6 (sum: 18)
 
 
       // OUTPUTS
-      plhs[0] = mxCreateDoubleMatrix(out_size, 1, mxREAL);
+      plhs[0] = mxCreateDoubleMatrix(pts, 1, mxREAL);
       double *x_traj = mxGetPr(plhs[0]);
-      plhs[1] = mxCreateDoubleMatrix(out_size, 1, mxREAL);
+      plhs[1] = mxCreateDoubleMatrix(pts, 1, mxREAL);
       double *y_traj = mxGetPr(plhs[1]);
-      plhs[2] = mxCreateDoubleMatrix(out_size, 1, mxREAL);
+      plhs[2] = mxCreateDoubleMatrix(pts, 1, mxREAL);
       double *z_traj = mxGetPr(plhs[2]);
-      plhs[3] = mxCreateDoubleMatrix(out_size, 1, mxREAL);
+      plhs[3] = mxCreateDoubleMatrix(pts, 1, mxREAL);
       double *ts = mxGetPr(plhs[3]);
       double its;
-      double recorded;
 
       mexPrintf("Calling FORTRAN code.\n");
-      integrate_trajectory_lite(&xx, &yy, &zz, &vxx, &vyy, &vzz, \
+      integrate_trajectory_lite(&pts, &xx, &yy, &zz, &vxx, &vyy, &vzz, \
                            potential_maps, voltages, step_times_in, \
                            &time_steps, dimensions, is_electrode, \
                            &n_electrodes, &m, &q, &din, &maxdist, &maxt, \
-                           &data_t_interval, &out_length,
-                           x_traj, y_traj, z_traj, ts, &its, &recorded);
+                           x_traj, y_traj, z_traj, ts, &its);
       mexPrintf("FORTRAN exited successfully.\n");
       plhs[4] = mxCreateDoubleScalar(its);
-      plhs[5] = mxCreateDoubleScalar(recorded);
 }

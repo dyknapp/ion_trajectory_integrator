@@ -3,7 +3,7 @@
 filelist = dir(fullfile('.', '**\*.*'));  %get list of files and directories in any subfolder
 filelist = filelist(~[filelist.isdir]); % remove directories from list
 
-git_storage_size_limit = 100 * (2^20);
+git_storage_size_limit = 1 * (2^20);
 
 found_ignores = false;
 ignore_files = [" "];

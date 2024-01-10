@@ -41,12 +41,6 @@ function FORTRAN_to_mex(which, setvars_path)
         % % Delete unneeded files
         % !rm trajectory_integration.mod trajectory_integration_module.o
     elseif ispc     % For windows
-        % Generate header file
-        !gfortran -fc-prototypes -fsyntax-only -cpp FOR001_modules\trajectory_integration_module.f > C__001_wrappers\trajectory_integration_module.h
-        !gfortran -fc-prototypes -fsyntax-only -cpp FOR001_modules\potential_calculation.f         > C__001_wrappers\potential_calculation.h
-        % Compile to .o file
-        
-    
         if ~strcmp(setvars_path, "default")
             result = system(strcat(setvars_path, " intel64 vs2022"));
         else
@@ -56,8 +50,19 @@ function FORTRAN_to_mex(which, setvars_path)
         if result ~= 0
             fprintf("*** FAILURE *** oneAPI environment initialization \n")
         end
-        !ifort /fpp /c /dll /O3 /Qparallel /Qopenmp .\FOR001_modules\trajectory_integration_module.f -o .\FOR001_modules\tim.o
-        !ifort /fpp /c /dll /O3 /Qparallel /Qopenmp .\FOR001_modules\potential_calculation.f         -o .\FOR001_modules\pc.o
+        !ifort /fpp /c /dll /O3 /Qparallel /Qopenmp .\FOR001_modules\utils.f                                   -o .\FOR001_modules\utils.o
+        !ifort /fpp /c /dll /O3 /Qparallel /Qopenmp .\FOR001_modules\trajectory_integration_module.f           -o .\FOR001_modules\tim.o
+        !ifort /fpp /c /dll /O3 /Qparallel /Qopenmp .\FOR001_modules\potential_calculation.f                   -o .\FOR001_modules\pc.o
+        !ifort /fpp /c /dll /O3 /Qparallel /Qopenmp .\FOR001_modules\ion_optics.f                              -o .\FOR001_modules\io.o
+
+        % Generate header file
+        !del *.mod
+        !gfortran -c .\FOR001_modules\utils.f
+        !gfortran -fc-prototypes -fsyntax-only -cpp FOR001_modules\trajectory_integration_module.f > C__001_wrappers\trajectory_integration_module.h
+        !gfortran -fc-prototypes -fsyntax-only -cpp FOR001_modules\potential_calculation.f         > C__001_wrappers\potential_calculation.h
+        !gfortran -fc-prototypes -fsyntax-only -cpp FOR001_modules\ion_optics.f                    > C__001_wrappers\ion_optics.h
+        !gfortran -fc-prototypes -fsyntax-only -cpp FOR001_modules\utils.f                         > C__001_wrappers\utils.h
+        
         % Compile C wrapper to mex
         name = "trajectory_integration_module";
         if any(contains(which, name)) || all
@@ -101,10 +106,49 @@ function FORTRAN_to_mex(which, setvars_path)
             mex -r2018a C__001_wrappers/refined_laplace.c                        FOR001_modules/pc.o -outdir FOR001_modules
         end
 
+        name = "ray_optics_2D";
+        if any(contains(which, name)) || all
+            fprintf("\nCompiling MEX: %s\n", name);
+            drawnow('update') 
+            mex -r2018a C__001_wrappers/ray_optics_2D.c                          FOR001_modules/io.o -outdir FOR001_modules
+        end
+
+        name = "ray_optics_ensemble";
+        if any(contains(which, name)) || all
+            fprintf("\nCompiling MEX: %s\n", name);
+            drawnow('update') 
+            mex -r2018a C__001_wrappers/ray_optics_ensemble.c                    FOR001_modules/io.o -outdir FOR001_modules
+        end
+
+        name = "interpolate_monotonic_1d";
+        if any(contains(which, name)) || all
+            fprintf("\nCompiling MEX: %s\n", name);
+            drawnow('update') 
+            mex -r2018a C__001_wrappers/interpolate_monotonic_1d.c                FOR001_modules/utils.o -outdir FOR001_modules
+        end
+
+        name = "linspace_fortran";
+        if any(contains(which, name)) || all
+            fprintf("\nCompiling MEX: %s\n", name);
+            drawnow('update') 
+            mex -r2018a C__001_wrappers/linspace_fortran.c                        FOR001_modules/utils.o -outdir FOR001_modules
+        end
+
+        name = "fly_ensemble";
+        if any(contains(which, name)) || all
+            fprintf("\nCompiling MEX: %s\n", name);
+            drawnow('update') 
+            mex -r2018a C__001_wrappers/fly_ensemble.c                            FOR001_modules/tim.o -outdir FOR001_modules
+        end
+
+        name = "fly_cloud";
+        if any(contains(which, name)) || all
+            fprintf("\nCompiling MEX: %s\n", name);
+            drawnow('update') 
+            mex -r2018a C__001_wrappers/fly_cloud.c                               FOR001_modules/tim.o -outdir FOR001_modules
+        end
+
         % Remove extra files
-    !del FOR001_modules\tim.o
-    !del FOR001_modules\pc.o
-    !del trajectory_integration.mod
-    !del potential_calculation.mod
+        !del *.o
     end
 end

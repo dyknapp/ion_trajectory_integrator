@@ -1,3 +1,7 @@
+#define PI 3.14159265358979323846
+#define ECHARGE 1.602176634e-19
+#define VACEPSILON 8.8541878128e-12
+#define PROTONMASS 1.67262192369e-27
 #define MAX_TRAJECTORY_POINTS 1048576
 C     ^^ IF YOU CHANGE IT HERE, YOU NEED TO CHANGE IT IN THE OTHER FILES
 
@@ -10,6 +14,77 @@ C     ^^ IF YOU CHANGE IT HERE, YOU NEED TO CHANGE IT IN THE OTHER FILES
       real(c_double) :: minimal_test
       minimal_test = 2 * in
       end function
+
+C     Assumes that the independent variable increases monotonically
+C     Also assumes that the input is a function
+      subroutine interpolate_monotonic_1d(in_length, out_length, 
+     &                                    t, f, new_t, new_f)
+        integer(c_int), intent(in) :: in_length, out_length
+        real(c_double),  dimension(in_length), intent(in)  :: f, t 
+        real(c_double), dimension(out_length), intent(in)  :: new_t
+        real(c_double), dimension(out_length), intent(out) :: new_f
+        integer, dimension(out_length) :: idcs
+        integer :: new_t_idx, old_t_idx, idx
+
+        ! Initialize idcs
+        idcs = -1
+        new_t_idx = 1
+
+        ! If new_t starts too early, we need to set it up for linear
+        !   extrapolation at the start
+        do while (new_t(new_t_idx) < t(1))
+          idcs(new_t_idx) = 1
+          new_t_idx = new_t_idx + 1
+        end do
+
+        do old_t_idx = 2, in_length - 1
+          ! If we passed by an old_t value, record the index
+          do while (t(old_t_idx) .GT. new_t(new_t_idx))
+            idcs(new_t_idx) = old_t_idx - 1
+            new_t_idx = new_t_idx + 1
+            ! break if we have all of the idcs we need
+            if (new_t_idx .GT. out_length) then
+              goto 1
+            end if
+          end do
+        end do
+ 1      continue
+
+        ! Fill the remaining for linear extrapolation at the end
+        do idx = new_t_idx, out_length
+          if (idcs(idx) .EQ. -1) then
+            idcs(idx) = in_length - 1
+          end if
+        end do
+
+        ! Now we can do the interpolation in parallel
+        new_f = -1
+        do idx = 1,out_length
+          if (idcs(idx) .GT. 0) then
+            f1 = f(idcs(idx))
+            f2 = f(idcs(idx) + 1)
+            t1 = t(idcs(idx))
+            t2 = t(idcs(idx) + 1)
+            rel_t = new_t(idx) - t1
+            new_f(idx) = f1 + rel_t * (f2 - f1) / (t2 - t1)
+          end if
+        end do
+      end subroutine interpolate_monotonic_1d
+
+
+      subroutine linspace_fortran(a, b, n, linspace)
+        integer(c_int), intent(in) :: n
+        real(c_double), intent(in) :: a, b
+        real(c_double), dimension(n), intent(out) :: linspace
+        if (b .EQ. a) then
+          linspace = a
+        else
+          dx = (b - a) / (n - 1)
+          do idx = 1,n
+            linspace(idx) = dx * dble(idx - 1) + a
+          end do
+        end if
+      end subroutine linspace_fortran
 
 C     Function for linear interpolation on a 4x4x4 lattice
       pure function lininterpolate3D(matrix, xin, yin, zin, d_grid) 
@@ -190,8 +265,6 @@ C     Correct the coordinates' offset and compute the E field
             end if
       end function
 
-
-C     Subroutine for Verlet integration of ion trajectory.
       subroutine integrate_trajectory(xx, yy, zz, vxx, vyy, vzz,
      &                        potential_maps, voltages, step_times_in,
      &                        time_steps, dimensions, is_electrode,
@@ -242,7 +315,7 @@ C           this function.
       mt = maxt * 1.0e-6                        ! us -> s
 
 C     Charge-to-mass ratio
-      cmr = ((1.602176634e-19) * q) / ((1.660539067e-27) * m);
+      cmr = ((ECHARGE) * q) / ((PROTONMASS) * m);
 
       call field_at(t, voltages, step_times, 
      &       n_electrodes, time_steps,
@@ -311,19 +384,18 @@ C           Check if particle is alive
 
 C     Subroutine for Verlet integration of ion trajectory.
 C     Data is recorded with time interval t_int
-      subroutine integrate_trajectory_lite(xx, yy, zz, vxx, vyy, vzz,
+      subroutine integrate_trajectory_lite(pts, xx,yy,zz, vxx,vyy,vzz,
      &                        potential_maps, voltages, step_times_in,
      &                        time_steps, dimensions, is_electrode,
-     &                        n_electrodes, m, q, din, maxdist, maxt, 
-     &                        data_t_interval, out_length,
-     &                        x_traj, y_traj, z_traj, ts, its, recorded)
+     &                        n_electrodes, m, q, din, maxdist, maxt,
+     &                        x_traj, y_traj, z_traj, ts, its)
      & bind(c, name = "integrate_trajectory_lite")
 C     Variable declarations:
 C     Dummy variables:
       real(c_double), intent(in) :: xx, yy, zz, vxx, vyy, vzz, m, q, din
       real(c_double), intent(in) 
-     &      :: maxdist, maxt, data_t_interval
-      integer(c_int), intent(in) :: time_steps, n_electrodes
+     &      :: maxdist, maxt
+      integer(c_int), intent(in) :: time_steps, n_electrodes, pts
       real(c_double), dimension(time_steps, n_electrodes)
      &      , intent(in) :: voltages
       integer(c_int), dimension(3), intent(in) :: dimensions
@@ -336,142 +408,37 @@ C     Dummy variables:
      &      intent(in) :: potential_maps
       real(c_double), dimension(time_steps), intent(in) :: step_times_in
       integer(c_int) :: out_length
-      real(c_double), dimension(out_length), 
+      real(c_double), dimension(pts), 
      &      intent(out)
      &      :: x_traj, y_traj, z_traj, ts
-      real(c_double), intent(out) :: its, recorded
+      real(c_double), intent(out) :: its
 
-C     Local variables
-      real(c_double), dimension(time_steps) :: step_times
-      real(c_double) :: x, y, z, vx, vy, vz, t, mdist, mt, cmr,
-     &      a, v, tv, ta, tstep, ex, ey, ez, ex_new, ey_new, ez_new, d,
-     &      interval, next
-      integer :: idx, iter, t_idx
-      logical :: dead 
-      
-C     Unit conversions.  For simplicity, we work with SI units within 
-C           this function.
-      x = xx * 1.0e-3
-      y = yy * 1.0e-3
-      z = zz * 1.0e-3                           ! mm -> m
-      vx = vxx * 1.0e+3
-      vy = vyy * 1.0e+3
-      vz = vzz * 1.0e+3                         ! mm/us -> m/s
-      interval = data_t_interval * 1.0e-6
-      step_times = step_times_in * 1.0e-6
-      t = step_times(1)                         ! us -> s
-      d = din * 1e-3                            ! mm -> m
-      mdist = maxdist * 1.0e-3
-      mt = maxt * 1.0e-6                        ! us -> s
-
-C     Charge-to-mass ratio
-      cmr = ((1.602176634e-19) * q) / ((1.660539067e-27) * m);
-
-      call field_at(t, voltages, step_times, 
-     &       n_electrodes, time_steps,
-     &       x, y, z, d, potential_maps, dimensions,
-     &       ex, ey, ez)
-
-C     Main loop of integration
-      iter = 0
-C     Check if particle is alive
-      dead = is_dead(dimensions, is_electrode, x, y, z, d)
-      if (dead) then
-            t = mt;
-      end if
-C     Initialize data recording
-      t_idx = 0
-      ts = 0.0
-      x_traj = 0.0
-      y_traj = 0.0
-      z_traj = 0.0
-      next = 0.0
-      do while ((t < mt) .and. (iter < MAX_TRAJECTORY_POINTS))
-            iter = iter + 1
-
-C           Record current state before it gets modified by the 
-C                 integration step
-            if (t >= next) then
-                  t_idx = t_idx + 1
-                  next = interval * dble(t_idx)
-                  x_traj(t_idx) = x  * 1.0e+3
-                  y_traj(t_idx) = y  * 1.0e+3
-                  z_traj(t_idx) = z  * 1.0e+3
-                  ts(t_idx)     = t  * 1.0e+6
-            end if
-
-C           Integration timestep calculation
-            a = SQRT(ex*ex + ey*ey + ez*ez) * cmr
-            v = SQRT(vx*vx + vy*vy + vz*vz)
-
-            a = a + 1.0e-15
-            v = v + 1.0e-15
-            tv = mdist / v
-            ta = SQRT(2.0 * mdist / a)
-            tstep = tv * ta / (tv + ta)
-            tstep = MIN(tstep, mt * 1.0e-3)
-            t = t + tstep
-
-C           Integration step
-            x = x + tstep * vx + tstep * tstep * ex * cmr / 2
-            y = y + tstep * vy + tstep * tstep * ey * cmr / 2
-            z = z + tstep * vz + tstep * tstep * ez * cmr / 2
+      real(c_double), dimension(MAX_TRAJECTORY_POINTS) :: 
+     &      xs, ys, zs, exs, eys, ezs, t
 
 
-            call field_at(t, voltages, step_times, 
-     &            n_electrodes, time_steps,
-     &            x, y, z, d, potential_maps, dimensions,
-     &            ex_new, ey_new, ez_new)
+      call integrate_trajectory(xx, yy, zz, vxx, vyy, vzz,
+     &                        potential_maps, voltages, step_times_in,
+     &                        time_steps, dimensions, is_electrode,
+     &                        n_electrodes, m, q, din, maxdist, maxt,
+     &                        xs, ys, zs, t, exs, eys, ezs, its)
 
-C           Check if particle is alive
-            dead = is_dead(dimensions, is_electrode, x, y, z, d)
-            if (dead) then
-                  t = mt;
-            end if
+      call linspace_fortran(real(0.0, c_double), t(MAX(1, NINT(its)-1)),
+     &      pts, ts)
 
-            vx = vx + tstep * (ex_new + ex) * cmr / 2
-            vy = vy + tstep * (ey_new + ey) * cmr / 2
-            vz = vz + tstep * (ez_new + ez) * cmr / 2
-            ex = ex_new
-            ey = ey_new
-            ez = ez_new
-      end do
-      its = dble(iter)
-      recorded = dble(t_idx)
+      call interpolate_monotonic_1d(MAX_TRAJECTORY_POINTS, pts, 
+     &                                    t, xs, ts, x_traj)
+      call interpolate_monotonic_1d(MAX_TRAJECTORY_POINTS, pts, 
+     &                                    t, ys, ts, y_traj)
+      call interpolate_monotonic_1d(MAX_TRAJECTORY_POINTS, pts, 
+     &                                    t, zs, ts, z_traj)
       end subroutine
-
-C       subroutine time_interpolate(xs, ts, nin, points, nout,
-C      &                            interpolated)
-C      & bind(c, name='time_interpolate')
-C       integer(c_int), intent(in) :: nin, nout
-C       real(c_double), dimension(nin),  intent(in) :: xs, ts
-C       real(c_double), dimension(nin),  intent(in) :: points
-C       real(c_double), dimension(nout), intent(out):: interpolated
-C       integer :: p_idx, x_idx
-C       x_idx = 0
-C       do p_idx = 1,nout
-C             do while (ts(x_idx) < points(p_idx) .and. x_idx < nin)
-C                   x_idx = x_idx + 1
-C             end do
-C             if (x_idx > nin) then
-C                   x_idx = nin
-C                   interpolated(p_idx) = 0.0
-C                   CYCLE
-C             end if
-C             interpolated(p_idx) = 
-C      &                  xs(x_idx)
-C      &                  + (xs(x_idx) - xs(x_idx - 1)) 
-C      &                  * (points(p_idx) - ts(x_idx))
-C      &                  / (ts(x_idx) - ts(x_idx - 1)) 
-C       end do
-C       end subroutine
 
       subroutine fly_ensemble(interps, particles, xs,ys,zs,vxs,vys,vzs,
      &                        potential_maps, voltages, step_times_in,
      &                        time_steps, dimensions, is_electrode,
      &                        n_electrodes, m, q, din, maxdist, maxt,
-     &                        x_trajs, y_trajs, z_trajs, 
-     &                        tss, exss, eyss, ezss, itss)
+     &                        x_trajs, y_trajs, z_trajs, tss, itss)
      & bind(c, name = "fly_ensemble")
 C     Variable declarations:
 C     Dummy variables:
@@ -494,57 +461,345 @@ C     Dummy variables:
       real(c_double), dimension(time_steps), intent(in) 
      &      :: step_times_in
       real(c_double), dimension(particles, interps), 
-     &      intent(out) :: x_trajs,y_trajs,z_trajs,tss,exss,eyss,ezss
+     &      intent(out) :: x_trajs, y_trajs, z_trajs, tss
       real(c_double), dimension(particles),
      &      intent(out) :: itss
 
 C     Local variables:
-      real(c_double), dimension(MAX_TRAJECTORY_POINTS)
-     &      :: x, y, z, t, ex, ey, ez
       real(c_double), dimension(interps)
-     &      :: x_traj, y_traj, z_traj, ts, exs, eys, ezs, interp_ts
+     &      :: x, y, z, t
       real(c_double) :: its, increment
       integer :: i, j, k
 
 C     Allocate the output variables
 
 C     Run the trajectory simulations
-C       !$OMP PARALLEL DO DEFAULT(SHARED) 
-C      &!$ PRIVATE(i, j, k, xs, ys, zs, ts, exs, eys, ezs, interp_ts) 
-C      &!$ SCHEDULE(STATIC, 16)
       do i = 1,particles
-            call integrate_trajectory(xs(i), ys(i), zs(i), 
+            call integrate_trajectory_lite(interps, xs(i), ys(i), zs(i),
      &                          vxs(i), vys(i), vzs(i),
      &                          potential_maps, voltages, step_times_in,
      &                          time_steps, dimensions, is_electrode,
      &                          n_electrodes, m, q, din, maxdist, maxt,
-     &                          x, y, z, t, ex, ey, ez, its)
-
-C           For the output, we interpolate to reduce size
-C             increment = t(NINT(its)) / its
-C             interp_ts(1) = 0.0
-C             do k = 2,NINT(its)
-C                   interp_ts(k) = 0.0!increment + interp_ts(k - 1)
-C             end do
-C             call time_interpolate(x, t, MAX_TRAJECTORY_POINTS,
-C      &                            interp_ts, interps, x_traj)
+     &                          x, y, z, t, its)
 
             do j = 1,interps
                   x_trajs(i, j) = x(j)
                   y_trajs(i, j) = y(j)
                   z_trajs(i, j) = z(j)
                   tss(i, j)     = t(j)
-                  exss(i, j)    = ex(j)
-                  eyss(i, j)    = ey(j)
-                  ezss(i, j)    = ez(j)
             end do
-            itss(i) = its
-            continue
+            itss(i) = dble(its)
       end do
-C       !$OMP END PARALLEL DO
-
       end subroutine
+
+      subroutine check_dead_cloud(particles, dead, xs, ys, zs, d,
+     &                            dimensions, is_electrode)
+      integer(c_int), intent(in)
+     &      :: particles
+      real(c_double), intent(in) 
+     &      :: d
+      real(c_double), dimension(particles), intent(in)
+     &      :: xs, ys, zs
+      integer(c_int), dimension(3), intent(in) 
+     &      :: dimensions
+      integer(c_int), intent(in),
+     &      dimension(dimensions(1), dimensions(2), dimensions(3))
+     &      :: is_electrode
+      logical, dimension(particles), intent(inout)
+     &      :: dead
+
+      do i = 1,particles
+            if (.NOT. dead(i)) then
+                  dead(i) =
+     &                  is_dead(dimensions, is_electrode, 
+     &                          xs(i), ys(i), zs(i), d)
+            end if
+      end do
+      end subroutine check_dead_cloud
+
+      subroutine coulomb(xdiff, ydiff, zdiff, q1, q2, m1, m2,
+     &      ax1, ay1, az1, ax2, ay2, az2)
+      real(c_double), intent(in)
+     &      :: xdiff, ydiff, zdiff, q1, q2, m1, m2
+      real(c_double), intent(inout)
+     &      :: ax1, ay1, az1, ax2, ay2, az2
+      distance_sqrd =
+     &        (xdiff * xdiff)
+     &      + (ydiff * ydiff)
+     &      + (zdiff * zdiff)
+      distance = SQRT(distance_sqrd)
+      coulomb_force =
+     &        1 / ( VACEPSILON
+     &      * 4.0 * PI )
+     &      * q1 * q2
+     &      * (ECHARGE**2.0)
+     &      / distance_sqrd
+
+      ax1 = ax1
+     &      + (coulomb_force / (PROTONMASS * m1))
+     &      * xdiff / distance
+      ay1 = ay1
+     &      + (coulomb_force / (PROTONMASS * m1))
+     &      * ydiff / distance
+      az1 = az1
+     &      + (coulomb_force / (PROTONMASS * m1))
+     &      * zdiff / distance
+     
+      ax2 = ax2
+     &      - (coulomb_force / (PROTONMASS * m2))
+     &      * xdiff / distance
+      ay2 = ay2
+     &      - (coulomb_force / (PROTONMASS * m2))
+     &      * ydiff / distance
+      az2 = az2
+     &      - (coulomb_force / (PROTONMASS * m2))
+     &      * zdiff / distance
+      end subroutine coulomb
       
+      subroutine fly_cloud(   record_interval, interps, particles, 
+     &                        xxs, yys, zzs, vxxs, vyys, vzzs,
+     &                        potential_maps, voltages, step_times_in,
+     &                        time_steps, dimensions, is_electrode,
+     &                        n_electrodes, ms, qs, din, maxdist, maxt,
+     &                        x_trajs, y_trajs, z_trajs, ts, its)
+     & bind(c, name = "fly_cloud")
+      integer(c_int), intent(in)
+     &      :: particles, interps, time_steps, n_electrodes
+      real(c_double), intent(in)
+     &      :: din, maxdist, maxt, record_interval
+      real(c_double), dimension(particles), intent(in) 
+     &      :: xxs, yys, zzs, vxxs, vyys, vzzs, ms, qs
+      real(c_double), dimension(time_steps, n_electrodes), intent(in) 
+     &      :: voltages
+      integer(c_int), dimension(3), intent(in)
+     &      :: dimensions
+      integer(c_int), intent(in),
+     &      dimension(dimensions(1), dimensions(2), dimensions(3))
+     &      :: is_electrode
+      real(c_double), 
+     &      dimension(n_electrodes, dimensions(1), 
+     &      dimensions(2), dimensions(3)), intent(in) 
+     &      :: potential_maps
+      real(c_double), dimension(time_steps), intent(in) 
+     &      :: step_times_in
+      real(c_double), dimension(particles, interps), intent(out) 
+     &      :: x_trajs, y_trajs, z_trajs
+      real(c_double), dimension(interps), intent(out) 
+     &      :: ts
+      real(c_double), intent(out)
+     &      :: its
+
+C     Local variables
+      real(c_double), dimension(time_steps) 
+     &      :: step_times
+      real(c_double), dimension(particles)
+     &      :: xs, ys, zs, vxs, vys, vzs, cmrs,
+     &         exs, eys, ezs, exs_old, eys_old, ezs_old,
+     &         axs, ays, azs, axs_old, ays_old, azs_old,
+     &         tvs, tas, as, vs
+      real(c_double), dimension(interps)
+     &      :: temp_traj
+      real(c_double) 
+     &      :: t, mdist, mt, c, tv, ta, tstep, distance_sqrd, distance
+     &         xdiff, ydiff, zdiff, coulomb_force, d, ex, ey, ez
+      integer 
+     &      :: idx, iter, alive
+      logical, dimension(particles)
+     &      :: dead
+      real(c_double), allocatable
+     &      :: vectorPath(:, :, :)
+      real(c_double), allocatable
+     &      :: tPath(:)
+
+      allocate(vectorPath(3, particles, MAX_TRAJECTORY_POINTS))
+      vectorPath = 0.0;
+      allocate(tPath(MAX_TRAJECTORY_POINTS))
+      tPath = 0.0;
+      
+C     Unit conversions.  For simplicity, we work with SI units within 
+C           this function.
+      ! positions, velocities, cmrs
+      xs   = xxs  * 1.0e-3 ! mm -> m
+      ys   = yys  * 1.0e-3 ! mm -> m
+      zs   = zzs  * 1.0e-3 ! mm -> m
+      vxs  = vxxs * 1.0e+3 ! mm/us -> m/s
+      vys  = vyys * 1.0e+3 ! mm/us -> m/s
+      vzs  = vzzs * 1.0e+3 ! mm/us -> m/s
+      cmrs =   (ECHARGE / PROTONMASS) * (qs / ms)
+      
+      ! times
+      step_times = step_times_in * 1.0e-6
+      
+      ! other scalars
+      t     = 0.0
+      d     = din * 1e-3           ! mm -> m
+      mdist = maxdist * 1.0e-3     ! mm -> m
+      mt    = maxt * 1.0e-6        ! us -> s
+
+      axs = 0.0
+      ays = 0.0
+      azs = 0.0
+      exs = 0.0
+      eys = 0.0
+      ezs = 0.0
+
+C     MAIN INTEGRATION LOOP:
+C     Velocity-Verlet
+C     PHASE 1: Calculate/Inherit accelerations
+C     PHASE 2: Adaptive timestep
+C     PHASE 3: Half-timestep propagation of position
+C     PHASE 4: Calculate new acceleration
+C     PHASE 5: Half-timestep propagation of velocities mean acceleration
+C     Subroutine for Verlet integration of ion trajectory.
+
+C           PHASE 1: Calculate/Inherit Accelerations
+
+      dead = .FALSE.
+      call check_dead_cloud(particles, dead, xs, ys, zs, d,
+     &                      dimensions, is_electrode)
+      do idx = 1,particles
+            if (.not. dead(idx)) then
+                  call field_at(t, voltages, step_times, 
+     &                    n_electrodes, time_steps,
+     &                    xs(idx), ys(idx), zs(idx), d,
+     &                    potential_maps, dimensions,
+     &                    ex, ey, ez)
+                  axs(idx) = ex * cmrs(idx)
+                  ays(idx) = ey * cmrs(idx)
+                  azs(idx) = ez * cmrs(idx)
+                  ! Coulomb interaction, Newton's third law
+                  do jdx = 1,(idx - 1)
+                        call coulomb(xs(idx) - xs(jdx), 
+     &                               ys(idx) - ys(jdx), 
+     &                               zs(idx) - zs(jdx), 
+     &                               qs(idx), qs(jdx), 
+     &                               ms(idx), ms(jdx), 
+     &                               axs(idx), ays(idx), azs(idx), 
+     &                               axs(jdx), ays(jdx), azs(jdx))
+                  end do
+            end if
+      end do
+
+      iter = 0
+      do while (iter .lt. MAX_TRAJECTORY_POINTS)
+            iter = iter + 1
+            tPath(iter) = t
+
+C           PHASE 1: Calculate/Inherit Accelerations
+C           PHASE 2: Adaptive timestep
+            prev_tstep = tstep
+            as = SQRT((axs*axs) + (ays*ays) + (azs*azs)) + 1.0e-15
+            vs = SQRT((vxs*vxs) + (vys*vys) + (vzs*vzs)) + 1.0e-15
+            tvs = mdist / vs
+            tas = SQRT(2.0 * mdist / as)
+            tstep = MINVAL(tvs * tas / (tvs + tas))
+            tstep = MIN(tstep, mt * 1.0e-3)
+            t = t + tstep
+
+            do idx = 1,particles
+                  if (.not. dead(idx)) then
+                      ! Record the results
+                      ! I do this first so the first data point == ICs
+                      vectorPath(1, idx, iter) = xs(idx)
+                      vectorPath(2, idx, iter) = ys(idx)
+                      vectorPath(3, idx, iter) = zs(idx)
+            ! This is from the previous step, to avoid a second loop:
+C           PHASE 5: Half-timestep propagation of velocities,
+                      vxs(idx) =   vxs(idx) 
+     &                     + prev_tstep * (axs(idx) + axs_old(idx)) / 2.
+                      vys(idx) =   vys(idx) 
+     &                     + prev_tstep * (ays(idx) + ays_old(idx)) / 2.
+                      vzs(idx) =   vzs(idx) 
+     &                     + prev_tstep * (azs(idx) + azs_old(idx)) / 2.
+C           PHASE 3: Half-timestep propagation of position
+                      xs(idx) =  xs(idx) + (vxs(idx) * tstep)
+     &                          + ((axs(idx)) * (tstep**2.) / 2.0)
+                      ys(idx) =  ys(idx) + (vys(idx) * tstep)
+     &                          + ((ays(idx)) * (tstep**2.) / 2.0)
+                      zs(idx) =  zs(idx) + (vzs(idx) * tstep)
+     &                          + ((azs(idx)) * (tstep**2.) / 2.0)
+                  end if
+            end do
+
+            ! Check if the simulation should be finished
+            if (t .ge. mt) then
+                  its = dble(iter) - 0.5
+                  goto 2
+            end if
+
+            ! Check for casualties
+            call check_dead_cloud(particles, dead, xs, ys, zs, d,
+     &                            dimensions, is_electrode)
+
+            ! Since some are left, we need to calculate the fields for:
+C           PHASE 4: Calculate new acceleration
+            alive = 0
+            do idx = 1,particles
+                  if (.not. dead(idx)) then
+                        alive = alive + 1
+                        axs_old(idx) = axs(idx)
+                        ays_old(idx) = ays(idx)
+                        azs_old(idx) = azs(idx)
+                        call field_at(t, voltages, step_times, 
+     &                          n_electrodes, time_steps,
+     &                          xs(idx), ys(idx), zs(idx), d,
+     &                          potential_maps, dimensions,
+     &                          ex, ey, ez)
+                        axs(idx) = ex * cmrs(idx)
+                        ays(idx) = ey * cmrs(idx)
+                        azs(idx) = ez * cmrs(idx)
+                        ! Coulomb interaction, Newton's third law
+                        do jdx = 1,(idx - 1)
+                              call coulomb(xs(idx) - xs(jdx), 
+     &                                     ys(idx) - ys(jdx), 
+     &                                     zs(idx) - zs(jdx), 
+     &                                     qs(idx), qs(jdx), 
+     &                                     ms(idx), ms(jdx), 
+     &                                     axs(idx), ays(idx), azs(idx),
+     &                                     axs(jdx), ays(jdx), azs(jdx))
+                        end do
+                  end if
+            end do
+
+            ! If nobody is left, end the simulation
+            if (alive .eq. 0) then
+                  its = dble(iter)
+                  goto 2
+            end if
+      end do
+      its = dble(iter)
+ 2    continue
+
+      iter = MAX(2, iter)
+      call linspace_fortran(real(0.0, c_double), 
+     &      tPath(iter), interps, ts)
+      do i = 1,particles
+            call interpolate_monotonic_1d(iter, interps, 
+     &           tPath(1:iter), vectorPath(1, i, 1:iter), ts, temp_traj)
+            x_trajs(i, :) = temp_traj
+
+            call interpolate_monotonic_1d(iter, interps, 
+     &           tPath(1:iter), vectorPath(2, i, 1:iter), ts, temp_traj)
+            y_trajs(i, :) = temp_traj
+
+            call interpolate_monotonic_1d(iter, interps, 
+     &           tPath(1:iter), vectorPath(3, i, 1:iter), ts, temp_traj)
+            z_trajs(i, :) = temp_traj
+      end do
+C       ts = tPath(1:interps)
+C       do i = 1,particles
+C             do j = 1,interps
+C                   x_trajs(i, j) = vectorPath(1, i, j)
+C                   y_trajs(i, j) = vectorPath(2, i, j)
+C                   z_trajs(i, j) = vectorPath(3, i, j)
+C             end do
+C       end do
+      end subroutine fly_cloud
+
+
+
+
+
       subroutine fly_aqs(amp_scales, a_res, off_scales, o_res, reps, 
      &                        xx, yy, zz, vxx, vyy, vzz,
      &                        rf_potential, endcap_potential,
