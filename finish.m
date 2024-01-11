@@ -26,7 +26,7 @@ end
 
 % Update gitignore file
 fileID = fopen('.gitignore', 'r');
-gitignore_boilerplate_text = [extractBefore(fscanf(fileID, '%c'), "# END OF BOILERPLATE"), newline, '# END OF BOILERPLATE', newline, '# LARGE FILES:'];
+gitignore_boilerplate_text = [extractBefore(fscanf(fileID, '%c'), "# END OF BOILERPLATE"), '# END OF BOILERPLATE', newline, '# LARGE FILES:'];
 fclose(fileID);
 for ignore_addition = ignore_files
     gitignore_boilerplate_text = string(gitignore_boilerplate_text) + string(newline + ignore_addition);

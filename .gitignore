@@ -53,18 +53,13 @@ octave-workspace
 
 # SIMION files
 SIM001_data/
+*.pa*
 
 # DO NOT REMOVE ANYTHING BELOW THIS COMMENT: DOING SO RISKS BREAKING THE AUTOMATIC ENVIRONMENT MANAGEMENT WRITTEN IN MATLAB
-
-
 # END OF BOILERPLATE
 # LARGE FILES:
-decel_potential.mat
-hello.pa1.patxt
 parametric_excitation.gif
 testAnimated.gif
-test_potential.mat
-MISC_happy_hour_example/einzel_assembly_shielded.pa#
 MISC_happy_hour_example/einzel_assembly_shielded.pa0
 MISC_happy_hour_example/einzel_assembly_shielded.pa1
 MISC_happy_hour_example/einzel_assembly_shielded.pa1.patxt
@@ -74,7 +69,6 @@ MISC_happy_hour_example/einzel_assembly_shielded.pa3
 MISC_happy_hour_example/einzel_assembly_shielded.pa3.patxt
 MISC_happy_hour_example/einzel_assembly_shielded.pa4
 MISC_happy_hour_example/einzel_assembly_shielded.pa4.patxt
-MISC_happy_hour_example/einzel_assembly_shielded_uncropped.pa#
 MISC_unfinished/comparison_pa.pa#
 MISC_unfinished/comparison_pa.pa0
 MISC_unfinished/comparison_pa.pa1
@@ -111,8 +105,6 @@ SIM001_data/005_TOF_electrode_stack/electrode3.patxt
 SIM001_data/005_TOF_electrode_stack/electrode4.patxt
 SIM001_data/005_TOF_electrode_stack/electrode5.patxt
 SIM001_data/005_TOF_electrode_stack/electrode6.patxt
-SIM001_data/007_essentials_only/eo_rf.patxt
-SIM001_data/007_essentials_only/eo_shield.patxt
 SIM001_data/007_essentials_only/essentials_only.pa#
 SIM001_data/007_essentials_only/essentials_only.pa0
 SIM001_data/007_essentials_only/essentials_only.pa1
@@ -129,30 +121,3 @@ SIM001_data/007_essentials_only/essentials_only_dc4.patxt
 SIM001_data/007_essentials_only/essentials_only_dc5.patxt
 SIM001_data/007_essentials_only/essentials_only_rf.patxt
 SIM001_data/007_essentials_only/essentials_only_shield.patxt
-SIM001_data/008_quadrupole_deflector/COLQUAD5.PA8.patxt
-SIM001_data/008_quadrupole_deflector/COLQUAD5_modified.PA1.patxt
-SIM001_data/008_quadrupole_deflector/COLQUAD5_modified.PA2.patxt
-SIM001_data/008_quadrupole_deflector/COLQUAD5_modified.PA3.patxt
-SIM001_data/008_quadrupole_deflector/COLQUAD5_modified.PA4.patxt
-SIM001_data/008_quadrupole_deflector/COLQUAD5_modified.PA5.patxt
-SIM001_data/008_quadrupole_deflector/COLQUAD5_modified.PA6.patxt
-SIM001_data/008_quadrupole_deflector/COLQUAD5_modified.PA7.patxt
-SIM001_data/008_quadrupole_deflector/COLQUAD5_modified.PA8.patxt
-SIM001_data/009_ashfold_vmi_stack/ion_optics_assy-ashfold-A0.0.pa#
-SIM001_data/009_ashfold_vmi_stack/ion_optics_assy-ashfold-A0.0.pa0
-SIM001_data/009_ashfold_vmi_stack/ion_optics_assy-ashfold-A0.0.pa1
-SIM001_data/009_ashfold_vmi_stack/ion_optics_assy-ashfold-A0.0.pa1.patxt
-SIM001_data/009_ashfold_vmi_stack/ion_optics_assy-ashfold-A0.0.pa2
-SIM001_data/009_ashfold_vmi_stack/ion_optics_assy-ashfold-A0.0.pa2.patxt
-SIM001_data/009_ashfold_vmi_stack/ion_optics_assy-ashfold-A0.0.pa3
-SIM001_data/009_ashfold_vmi_stack/ion_optics_assy-ashfold-A0.0.pa3.patxt
-SIM001_data/009_ashfold_vmi_stack/ion_optics_assy-ashfold-A0.0.pa4
-SIM001_data/009_ashfold_vmi_stack/ion_optics_assy-ashfold-A0.0.pa4.patxt
-SIM001_data/009_ashfold_vmi_stack/ion_optics_assy-ashfold-A0.0.pa5
-SIM001_data/009_ashfold_vmi_stack/ion_optics_assy-ashfold-A0.0.pa5.patxt
-SIM001_data/009_ashfold_vmi_stack/ion_optics_assy-ashfold-A0.0.pa6
-SIM001_data/009_ashfold_vmi_stack/ion_optics_assy-ashfold-A0.0.pa6.patxt
-SIM001_data/009_ashfold_vmi_stack/ion_optics_assy-ashfold-A0.0.pa7
-SIM001_data/009_ashfold_vmi_stack/ion_optics_assy-ashfold-A0.0.pa7.patxt
-SIM001_data/009_ashfold_vmi_stack/ion_optics_assy-ashfold-A0.0.pa8
-SIM001_data/009_ashfold_vmi_stack/ion_optics_assy-ashfold-A0.0.pa8.patxt
