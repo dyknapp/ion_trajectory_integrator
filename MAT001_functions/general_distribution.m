@@ -3,8 +3,6 @@ function result = general_distribution( N, dv, vmax, pdf)
     % Do we need to take into account rovibrational dof's?
     % INPUT:
     %       N       : How many numbers to output
-    %       m       : Particle mass in amu
-    %       T       : Temperature in Kelvin
     %       dv      : Our result is actually discretized.  How large should the
     %                   bins be?
     %       vmax    : Where to cut off the distribution
@@ -20,6 +18,7 @@ function result = general_distribution( N, dv, vmax, pdf)
     for v_idx = 2:length(v_bins)
         cdf(v_idx) = cdf(v_idx - 1) + dv * pdf(v_bins(v_idx));
     end
+    cdf = cdf / cdf(end);
     
     % Take uniform random variables and interpolate where they'd end up in
     % the cdf.
