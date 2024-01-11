@@ -41,6 +41,12 @@ function FORTRAN_to_mex(which, setvars_path)
         % % Delete unneeded files
         % !rm trajectory_integration.mod trajectory_integration_module.o
     elseif ispc     % For windows
+        % Generate header file
+        !gfortran -fc-prototypes -fsyntax-only -cpp FOR001_modules\trajectory_integration_module.f > C__001_wrappers\trajectory_integration_module.h
+        !gfortran -fc-prototypes -fsyntax-only -cpp FOR001_modules\potential_calculation.f         > C__001_wrappers\potential_calculation.h
+        % Compile to .o file
+        
+    
         if ~strcmp(setvars_path, "default")
             result = system(strcat(setvars_path, " intel64 vs2022"));
         else
