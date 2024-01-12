@@ -1,3 +1,4 @@
+#define DEBUG 0
 #define PI 3.14159265358979323846
 #define ECHARGE 1.602176634e-19
 #define VACEPSILON 8.8541878128e-12
@@ -190,7 +191,7 @@ C     expects a size [n_electrodes, time_steps] sized matrix
       end subroutine
 
 C     Subroutine for computing the electric field at a point
-      pure subroutine field_at(t, voltages, step_times, 
+      subroutine field_at(t, voltages, step_times, 
      &      n_electrodes, time_steps,
      &      x, y, z, d, potential_maps, dimensions,
      &      ex, ey, ez)
@@ -225,6 +226,26 @@ C     Cut out a 4x4x4 area of the potential maps and compute linear sum
       cx = FLOOR(x / d)
       cy = FLOOR(y / d)
       cz = FLOOR(z / d)             ! Center coordinates
+
+      if (DEBUG .eq. 1) then
+            if     ((cx .le. 2) 
+     &         .or. (cy .le. 2) 
+     &         .or. (cz .le. 2)
+     &         .or. (cx .ge. (dimensions(1) - 2))
+     &         .or. (cy .ge. (dimensions(2) - 2))
+     &         .or. (cz .ge. (dimensions(3) - 2)))    then
+                  ex = 0.0
+                  ey = 0.0
+                  ez = 0.0
+                  open (10, file='output_file.txt', position="append",
+     &                        status='unknown')
+                  write(10, *) "field_at"
+                  write(10, *) t, x, y, z, d, cx, cy, cz
+                  close(10)
+                  goto 5
+            end if
+      end if
+
       do idx = 1,n_electrodes      ! Array slicing:
             do ix = 1,4
                   do iy = 1,4
@@ -243,26 +264,33 @@ C     Correct the coordinates' offset and compute the E field
       ty = 2*d + y - cy*d
       tz = 2*d + z - cz*d
       call potEfunc(potential, tx, ty, tz, d, ex, ey, ez)
+ 5    continue
       end subroutine
 
-      pure function is_dead(dimensions, is_electrode, x, y, z, d)
+      logical function is_dead(dimensions, is_electrode, x, y, z, d)
       integer(c_int), dimension(3), intent(in) :: dimensions
       integer(c_int), intent(in),
      &      dimension(dimensions(1), dimensions(2), dimensions(3))
      &      :: is_electrode
       real(c_double), intent(in) :: x, y, z, d
-      logical :: is_dead
-            if ((x < 2 * d) .or. (y < 2 * d) .or. (z < 2 * d)
-     &            .or. (x > (dimensions(1) - 2) * d)
-     &            .or. (y > (dimensions(2) - 2) * d)
-     &            .or. (z > (dimensions(3) - 2) * d)) then
-                  is_dead = .true.
-            else if (is_electrode(NINT(x/d), NINT(y/d), NINT(z/d)) == 1)
-     &       then
-                  is_dead = .true.
-            else
-                  is_dead = .false.
-            end if
+      integer(c_int) :: gx, gy, gz
+      gx = NINT(x / d)
+      gy = NINT(y / d)
+      gz = NINT(z / d)
+      is_dead = .false.
+      if (    (gx .le. 2) 
+     &   .or. (gy .le. 2) 
+     &   .or. (gz .le. 2)
+     &   .or. (gx .ge. (dimensions(1) - 2))
+     &   .or. (gy .ge. (dimensions(2) - 2))
+     &   .or. (gz .ge. (dimensions(3) - 2))
+     &   .or. ISNAN(x)
+     &   .or. ISNAN(y)
+     &   .or. ISNAN(z)                        ) then
+            is_dead = .true.
+      else if (is_electrode(gx, gy, gz) .eq. 1) then
+            is_dead = .true.
+      end if
       end function
 
       subroutine integrate_trajectory(xx, yy, zz, vxx, vyy, vzz,
@@ -317,18 +345,17 @@ C           this function.
 C     Charge-to-mass ratio
       cmr = ((ECHARGE) * q) / ((PROTONMASS) * m);
 
-      call field_at(t, voltages, step_times, 
-     &       n_electrodes, time_steps,
-     &       x, y, z, d, potential_maps, dimensions,
-     &       ex, ey, ez)    
-
 C     Main loop of integration
       iter = 0
 C     Check if particle is alive
       dead = is_dead(dimensions, is_electrode, x, y, z, d)
       if (dead) then
-            t = mt;
+            goto 3
       end if
+      call field_at(t, voltages, step_times, 
+     &       n_electrodes, time_steps,
+     &       x, y, z, d, potential_maps, dimensions,
+     &       ex, ey, ez)
       do while ((t < mt) .and. (iter < MAX_TRAJECTORY_POINTS))
             iter = iter + 1
 
@@ -368,7 +395,7 @@ C           Integration step
 C           Check if particle is alive
             dead = is_dead(dimensions, is_electrode, x, y, z, d)
             if (dead) then
-                  t = mt;
+                  goto 3
             end if
 
             vx = vx + tstep * (ex_new + ex) * cmr / 2
@@ -378,7 +405,7 @@ C           Check if particle is alive
             ey = ey_new
             ez = ez_new
       end do
-      its = dble(iter)
+ 3    its = dble(iter)
       end subroutine
 
 
@@ -415,7 +442,6 @@ C     Dummy variables:
 
       real(c_double), dimension(MAX_TRAJECTORY_POINTS) :: 
      &      xs, ys, zs, exs, eys, ezs, t
-
 
       call integrate_trajectory(xx, yy, zz, vxx, vyy, vzz,
      &                        potential_maps, voltages, step_times_in,
@@ -471,10 +497,23 @@ C     Local variables:
       real(c_double) :: its, increment
       integer :: i, j, k
 
-C     Allocate the output variables
+      if (DEBUG .eq. 1) then
+            open (10, file='output_file.txt',
+     &            status='unknown')
+            write(10, *) "fly_ensemble"
+            close(10)
+      end if
 
-C     Run the trajectory simulations
+C C     Run the trajectory simulations
       do i = 1,particles
+            if (DEBUG .eq. 1) then
+                  open (10, file='output_file.txt', position="append",
+     &                  status='unknown')
+                  write(10, *) "PARTICLE: ", i
+                  write(10, *) "INITIAL CONDITIONS:"
+                  write(10, *) xs(i),ys(i),zs(i),vxs(i),vys(i),vzs(i)
+                  close(10)
+            end if
             call integrate_trajectory_lite(interps, xs(i), ys(i), zs(i),
      &                          vxs(i), vys(i), vzs(i),
      &                          potential_maps, voltages, step_times_in,

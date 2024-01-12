@@ -11,6 +11,8 @@
 %
 % 24.10.2023,  dknapp: wrote the example
 
+constants = physical_constants();
+
 %% Variables to set beforehand
 %  This code block contains all scalar variables to be set before the
 %   simulation is started
@@ -18,7 +20,7 @@
 
 % Directory information
 % Path to simion folder containing potential files *.patxt
-simion_path = "SIM001_data\009_ashfold_vmi_stack";
+simion_path = "D:\ownCloud\01_experiment\07_SIM001_data\009_ashfold_vmi_stack";
 
 % Names of individual files containing electrodes' potentials
 electrode_names = ["ion_optics_assy-ashfold-A0.0.pa1.patxt", ...
@@ -72,7 +74,7 @@ d = 1.0;                % mm
 % If an ion leaves the simulation domain or hits an electrode, it may not
 %   survive all the way until end_time
 start_time =  0.0;      % us
-end_time   =  5.0;     % us
+end_time   =  1.0;     % us
 
 % Particle specifications
 m = 2.0;                % amu (e.g. 2.0 would be roughly correct for H2+)
@@ -164,38 +166,37 @@ xxs  = xx1 + normrnd(0, cloud_radius, [1 n_particles]);
 yys  = yy1 + normrnd(0, cloud_radius, [1 n_particles]);
 zzs  = zz1 + normrnd(0, cloud_radius, [1 n_particles]);
 
-dissoc_speed = 10.0; %mm / us
-for idx = 1:n_particles
-    % If we put the ion at the center of the trap with zero initial speed, it
-    %   will just sit there quietly.  A nice way to give it some speed is by
-    %   specifying a temperature and choosing a speed based on that.
-    maxwell = @(v) maxwell_pdf(v, m, T);
-    % Maxwell-Boltzmann distribution speeds
-    v = general_distribution(1, 1, 10000, maxwell) * 1.0e-3;
-    % Uniform distribution direcitions
-    theta = 2 * pi * rand();
-    phi = 2 * pi * rand();
-    % Convert speed & direction -> velocity
-    vxxs(idx) = v * sin(theta) * cos(phi);      % mm / us
-    vyys(idx) = v * sin(theta) * sin(phi);      % mm / us
-    vzzs(idx) = v * cos(theta);                 % mm / us
+fragment_energy_eV = 0.6;
+dissoc_speed = 1.0e-3 * sqrt(2 * fragment_energy_eV * constants("elementary charge") ...
+                                / constants("proton mass")); %mm / us
+% If we put the ion at the center of the trap with zero initial speed, it
+%   will just sit there quietly.  A nice way to give it some speed is by
+%   specifying a temperature and choosing a speed based on that.
+maxwell = @(v) maxwell_pdf(v, m, T);
+% Maxwell-Boltzmann distribution speeds
+vs = general_distribution(n_particles, 0.01, 10000, maxwell) * 1.0e-3;
+% Uniform distribution direcitions
+thetas = 2 * pi * rand([n_particles 1]);
+phis   = 2 * pi * rand([n_particles 1]);
+% Convert speed & direction -> velocity
+vxxs = vs .* sin(thetas) .* cos(phis);      % mm / us
+vyys = vs .* sin(thetas) .* sin(phis);      % mm / us
+vzzs = vs .* cos(thetas);                   % mm / us
 
-%     vxxs(idx) = vxxs(idx) + dissoc_speed * (-1)^idx;
-
-    cos2 = @(theta) (cos(theta).^2.) / (pi);
-    theta = general_distribution( 1, 0.001, 2*pi, cos2);
-    vxxs(idx) = vxxs(idx) + dissoc_speed * cos(theta);
-    vyys(idx) = vyys(idx) + dissoc_speed * sin(theta);
-end
+cos2 = @(theta) (cos(theta).^2.) / (pi);
+thetas2 = general_distribution(n_particles, 0.001, 2*pi, cos2);
+vxxs = vxxs + dissoc_speed * cos(thetas2);
+vyys = vyys + dissoc_speed * sin(thetas2);
 
 %% Integration
 fprintf("Simulation started.\n")
 tic
 potential_maps_size = size(potential_maps);
 potential_maps = reshape(potential_maps, [potential_maps_size(1), dimensions]);
-[xss, yss, zss, tss, itss] = fly_ensemble(1000, n_particles, xxs, yys, zzs, vxxs, vyys, vzzs, ...
+[xss, yss, zss, tss, itss] = fly_ensemble(int32(1000), int32(n_particles), xxs, yys, zzs, vxxs, vyys, vzzs, ...
                                       potential_maps, voltages, step_times, ...
-                                      time_steps, dimensions, int32(is_electrode), length(electrode_names), m, q, d, ...
+                                      int32(time_steps), dimensions, int32(is_electrode), ...
+                                      int32(length(electrode_names)), m, q, d, ...
                                       maxdist, end_time);
 elapsed_time = toc;
 fprintf("Simulation took %.3gs (%d it/s)\n", elapsed_time, round(sum(itss) / elapsed_time));

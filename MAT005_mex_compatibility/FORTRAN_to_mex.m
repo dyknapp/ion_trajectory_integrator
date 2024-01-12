@@ -56,11 +56,14 @@ function FORTRAN_to_mex(which, setvars_path)
         if result ~= 0
             fprintf("*** FAILURE *** oneAPI environment initialization \n")
         end
-        !ifort /fpp /c /dll /O3 /Qparallel /Qopenmp .\FOR001_modules\utils.f                                   -o .\FOR001_modules\utils.o
-        !ifort /fpp /c /dll /O3 /Qparallel /Qopenmp .\FOR001_modules\trajectory_integration_module.f           -o .\FOR001_modules\tim.o
-        !ifort /fpp /c /dll /O3 /Qparallel /Qopenmp .\FOR001_modules\potential_calculation.f                   -o .\FOR001_modules\pc.o
-        !ifort /fpp /c /dll /O3 /Qparallel /Qopenmp .\FOR001_modules\ion_optics.f                              -o .\FOR001_modules\io.o
-
+        % !ifort /fpp /c /dll /O3 /Qparallel /check:bounds .\FOR001_modules\utils.f                                   -o .\FOR001_modules\utils.o
+        % !ifort /fpp /c /dll /O3 /Qparallel /check:bounds .\FOR001_modules\trajectory_integration_module.f           -o .\FOR001_modules\tim.o
+        % !ifort /fpp /c /dll /O3 /Qparallel /check:bounds .\FOR001_modules\potential_calculation.f                   -o .\FOR001_modules\pc.o
+        % !ifort /fpp /c /dll /O3 /Qparallel /check:bounds .\FOR001_modules\ion_optics.f                              -o .\FOR001_modules\io.o
+        !ifort /fpp /c /dll /O3 /Qparallel .\FOR001_modules\utils.f                                   -o .\FOR001_modules\utils.o
+        !ifort /fpp /c /dll /O3 /Qparallel .\FOR001_modules\trajectory_integration_module.f           -o .\FOR001_modules\tim.o
+        !ifort /fpp /c /dll /O3 /Qparallel .\FOR001_modules\potential_calculation.f                   -o .\FOR001_modules\pc.o
+        !ifort /fpp /c /dll /O3 /Qparallel .\FOR001_modules\ion_optics.f                              -o .\FOR001_modules\io.o
         % Generate header file
         !del *.mod
         !gfortran -c .\FOR001_modules\utils.f
