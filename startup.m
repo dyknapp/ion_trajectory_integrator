@@ -10,7 +10,8 @@ end
 
 if ~all_checks_passed
     fprintf("*** ERROR ***\n" + ...
-            "Not all environment checks were passed.  Automatic initialization procedure aborted.")
+            "Not all environment checks were passed.  Compilation will be attempted, but is unlikely to succeed.")
+    FORTRAN_to_mex()
 else
     FORTRAN_to_mex([], setvars_path)
 end

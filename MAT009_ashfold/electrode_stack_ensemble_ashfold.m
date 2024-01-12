@@ -20,7 +20,7 @@ constants = physical_constants();
 
 % Directory information
 % Path to simion folder containing potential files *.patxt
-simion_path = "D:\ownCloud\01_experiment\07_SIM001_data\009_ashfold_vmi_stack";
+simion_path = "SIM001_data\009_ashfold_vmi_stack";
 
 % Names of individual files containing electrodes' potentials
 electrode_names = ["ion_optics_assy-ashfold-A0.0.pa1.patxt", ...
