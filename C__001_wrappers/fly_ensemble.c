@@ -134,11 +134,11 @@ void mexFunction(int nlhs, mxArray *plhs[], int nrhs, const mxArray *prhs[])
       plhs[4] = mxCreateDoubleMatrix(n_particles, 1,   mxREAL);
       double *itss    = mxGetPr(plhs[4]);
 
-      mexPrintf("Calling FORTRAN code.\n");
+      // mexPrintf("Calling FORTRAN code.\n");
       fly_ensemble(&pts, &n_particles, xx, yy, zz, vxx, vyy, vzz, \
                    potential_maps, voltages, step_times_in, \
                    &time_steps, dimensions, is_electrode, \
                    &n_electrodes, &m, &q, &din, &maxdist, &maxt, \
                    x_trajs, y_trajs, z_trajs, tss, itss);
-      mexPrintf("FORTRAN exited successfully.\n");
+      // mexPrintf("FORTRAN exited successfully.\n");
 }

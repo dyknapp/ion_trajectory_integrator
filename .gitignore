@@ -58,6 +58,23 @@ SIM001_data/
 # DO NOT REMOVE ANYTHING BELOW THIS COMMENT: DOING SO RISKS BREAKING THE AUTOMATIC ENVIRONMENT MANAGEMENT WRITTEN IN MATLAB
 # END OF BOILERPLATE
 # LARGE FILES:
+SIM001_data/001_linear_paul_trap/quad_doubled.PA#
+SIM001_data/001_linear_paul_trap/quad_doubled.PA1.patxt
+SIM001_data/001_linear_paul_trap/quad_doubled.PA2.patxt
+SIM001_data/001_linear_paul_trap/quad_doubled.PA3.patxt
+SIM001_data/001_linear_paul_trap/quad_doubled.PA4.patxt
+SIM001_data/001_linear_paul_trap/quad_doubled.PA5.patxt
+SIM001_data/001_linear_paul_trap/quad_doubled.PA6.patxt
+SIM001_data/001_linear_paul_trap/quad_doubled.PA7.patxt
+SIM001_data/001_linear_paul_trap/quad_doubled.PA8.patxt
+SIM001_data/005_TOF_electrode_stack/backingplate.patxt
+SIM001_data/005_TOF_electrode_stack/detector.patxt
+SIM001_data/005_TOF_electrode_stack/electrode1.patxt
+SIM001_data/005_TOF_electrode_stack/electrode2.patxt
+SIM001_data/005_TOF_electrode_stack/electrode3.patxt
+SIM001_data/005_TOF_electrode_stack/electrode4.patxt
+SIM001_data/005_TOF_electrode_stack/electrode5.patxt
+SIM001_data/005_TOF_electrode_stack/electrode6.patxt
 SIM001_data/009_ashfold_vmi_stack/ion_optics_assy-ashfold-A0.0.pa#
 SIM001_data/009_ashfold_vmi_stack/ion_optics_assy-ashfold-A0.0.pa0
 SIM001_data/009_ashfold_vmi_stack/ion_optics_assy-ashfold-A0.0.pa1
@@ -76,11 +93,3 @@ SIM001_data/009_ashfold_vmi_stack/ion_optics_assy-ashfold-A0.0.pa7
 SIM001_data/009_ashfold_vmi_stack/ion_optics_assy-ashfold-A0.0.pa7.patxt
 SIM001_data/009_ashfold_vmi_stack/ion_optics_assy-ashfold-A0.0.pa8
 SIM001_data/009_ashfold_vmi_stack/ion_optics_assy-ashfold-A0.0.pa8.patxt
-SIM001_data/010_VU_VMI/ion_optics-WML_electrodes-a0.0.pa1.patxt
-SIM001_data/010_VU_VMI/ion_optics-WML_electrodes-a0.0.pa2.patxt
-SIM001_data/010_VU_VMI/ion_optics-WML_electrodes-a0.0.pa3.patxt
-SIM001_data/010_VU_VMI/ion_optics-WML_electrodes-a0.0.pa4.patxt
-SIM001_data/010_VU_VMI/ion_optics-WML_electrodes-a0.0.pa5.patxt
-SIM001_data/010_VU_VMI/ion_optics-WML_electrodes-a0.0.pa6.patxt
-SIM001_data/010_VU_VMI/ion_optics-WML_electrodes-a0.0.pa7.patxt
-SIM001_data/010_VU_VMI/ion_optics-WML_electrodes-a0.0.pa8.patxt

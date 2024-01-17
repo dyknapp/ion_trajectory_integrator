@@ -11,9 +11,16 @@ end
 if ~all_checks_passed
     fprintf("*** ERROR ***\n" + ...
             "Not all environment checks were passed.  Compilation will be attempted, but is unlikely to succeed.")
-    FORTRAN_to_mex()
 else
-    FORTRAN_to_mex([], setvars_path)
+    setvars_path = "default";
+end
+
+key = compilation_key();
+keys = key.keys;
+for n = 1:length(keys)
+    combination = key(keys{n});
+    FORTRAN_to_mex(combination{1}, combination{2}, ...
+                   "default", setvars_path, false, (n == 1))
 end
 
 fprintf("\n\n\nREMINDERS for before you get to work:\n" + ...

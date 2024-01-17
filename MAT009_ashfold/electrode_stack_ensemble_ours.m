@@ -11,6 +11,23 @@
 %
 % 24.10.2023,  dknapp: wrote the example
 
+
+
+% This is a basic example illustrating a MATI using an electrode stack
+% This is done in Cartesian coordinates; for cylindrical, see the
+% accompanying example.
+%
+% A lot of the comments below will be copied verbatim from the example:
+%                   MAT002_examples/001_linear_paul_trap/linear_paul_trap.m
+% This is the main example for this repository, and it is more likely that
+% I remember to update it with new changes, especially when it comes to
+% further FORTRAN development.  The MATLAB side will probably stay static.
+% The main purpose of reproducing the comments here is for convenience.
+%
+% 24.10.2023,  dknapp: wrote the example
+
+constants = physical_constants();
+
 %% Variables to set beforehand
 %  This code block contains all scalar variables to be set before the
 %   simulation is started
@@ -83,7 +100,9 @@ q = 1.0;                % atomic units
 %   timesteps will be adjusted so that whatever value is set below, the
 %   particle should never travel further than that in one timestep.
 maxdist =  0.01;      % mm
-n_particles = 1e3;  % 2^10;
+batches = 24;
+particles_per_batch = 256;
+n_particles = batches * particles_per_batch;  % 2^10;
 cloud_radius = 0.5;
 T = 0.1;
 
@@ -118,26 +137,48 @@ voltages = zeros([time_steps, length(electrode_names)]);
 %
 % After turn_on_time (us), set the potential of electrode1.patxt to 25V
 turn_on_time = 0.1;
-voltages = set_voltage_at_time(1, 25.0, turn_on_time, step_times, voltages);
 % Always have the detector at -2.5kV
 voltages = set_voltage_at_time(8, -2500.0, 0.0, step_times, voltages);
 
-% If you are curious to see what the potential from electrode1 would be:
+% My guess:
+voltages = set_voltage_at_time(2,  25.0, turn_on_time, step_times, voltages);
+voltages = set_voltage_at_time(3, -10.0, turn_on_time, step_times, voltages);
+voltages = set_voltage_at_time(3, -100.0, turn_on_time, step_times, voltages);
+voltages = set_voltage_at_time(4, -100.0, turn_on_time, step_times, voltages);
+voltages = set_voltage_at_time(5, -100.0, turn_on_time, step_times, voltages);
+voltages = set_voltage_at_time(6, -100.0, turn_on_time, step_times, voltages);
+voltages = set_voltage_at_time(7, -100.0, turn_on_time, step_times, voltages);
+
+% Optimized
+% % Electrode voltages
+% % Repeller:
+% voltages = set_voltage_at_time(2, 12.6, turn_on_time, step_times, voltages);
+% % Constant:
+% voltages = set_voltage_at_time(1,  0.10, 0.0, step_times, voltages);
+% voltages = set_voltage_at_time(3,  0.79, 0.0, step_times, voltages);
+% voltages = set_voltage_at_time(4,  1.00, 0.0, step_times, voltages);
+% voltages = set_voltage_at_time(5,  0.40, 0.0, step_times, voltages);
+% voltages = set_voltage_at_time(6,  0.13, 0.0, step_times, voltages);
+% voltages = set_voltage_at_time(7,  0.77, 0.0, step_times, voltages);
+
+% If you are curious to see what the potential from electrode n would be:
 % potential_maps_reshaped = reshape(potential_maps, [length(electrode_names) dimensions]);
-% imagesc(squeeze(potential_maps_reshaped(2,round(dimensions(1)/2),:,:)))
+% n = 1;
+% imagesc(squeeze(potential_maps_reshaped(n,round(dimensions(1)/2),:,:)))
 % axis image
 % colorbar()
 % colormap('turbo')
 % clear potential_maps_reshaped
+
 %% Initializing
 % We need to choose the particle's initial phase space position.
 
 % Initialize the particle in the center of the trap.
 % We multiply by d (the grid spacing) because the integrator expects
 %   physical units, not indices.
-xx1 = d * double(dimensions(1) + 1) / 2.0; % mm
-yy1 = d * double(dimensions(2) + 1) / 2.0; % mm
-zz1 = d * double(dimensions(3) + 1) * 0.945; % mm
+xx1 = d * double(dimensions(1) - 1) / 2.0;  % mm
+yy1 = d * double(dimensions(2) - 1) * 0.91; % mm
+zz1 = d * double(dimensions(3) - 1) / 2.0;  % mm
 
 % If you are curious to see what the potential from electrode1 would be, 
 % compared to the starting point:
@@ -146,70 +187,125 @@ potential_maps_reshaped = reshape(potential_maps, [length(electrode_names) dimen
 % tiledlayout(4, 2)
 % for i = 1:length(electrode_names)
 %     nexttile
-%     imagesc(squeeze(potential_maps_reshaped(i,round(dimensions(1)/2),:,:)))
+%     imagesc(squeeze(potential_maps_reshaped(i,:,:,round(dimensions(3)/2))))
 %     title(sprintf('Electrode %d', i))
 %     axis image
 %     colorbar()
 %     colormap('turbo')
-%     yline(yy1/d, 'r'); xline(zz1/d, 'r');
+%     yline(xx1/d, 'r'); xline(yy1/d, 'r');
 %     title(sprintf('Electrode %d', i))
 % end
 % drawnow('update')
 
-
-vxxs = zeros([1 n_particles]);
-vyys = zeros([1 n_particles]);
-vzzs = zeros([1 n_particles]);
 xxs  = xx1 + normrnd(0, cloud_radius, [1 n_particles]);
 yys  = yy1 + normrnd(0, cloud_radius, [1 n_particles]);
 zzs  = zz1 + normrnd(0, cloud_radius, [1 n_particles]);
 
-dissoc_speed = 10.0; %mm / us
-for idx = 1:n_particles
-    % If we put the ion at the center of the trap with zero initial speed, it
-    %   will just sit there quietly.  A nice way to give it some speed is by
-    %   specifying a temperature and choosing a speed based on that.
-    maxwell = @(v) maxwell_pdf(v, m, T);
-    % Maxwell-Boltzmann distribution speeds
-    v = general_distribution(1, 1, 10000, maxwell) * 1.0e-3;
-    % Uniform distribution direcitions
-    theta = 2 * pi * rand();
-    phi = 2 * pi * rand();
-    % Convert speed & direction -> velocity
-    vxxs(idx) = v * sin(theta) * cos(phi);      % mm / us
-    vyys(idx) = v * sin(theta) * sin(phi);      % mm / us
-    vzzs(idx) = v * cos(theta);                 % mm / us
+fragment_energy_eV = 0.6;
+dissoc_speed = 1.0e-3 * sqrt(2 * fragment_energy_eV * constants("elementary charge") ...
+                                / constants("proton mass")); %mm / us
+% % If we put the ion at the center of the trap with zero initial speed, it
+% %   will just sit there quietly.  A nice way to give it some speed is by
+% %   specifying a temperature and choosing a speed based on that.
+% maxwell = @(v) maxwell_pdf(v, m, T);
+% % Maxwell-Boltzmann distribution speeds
+% vs = general_distribution(n_particles, 0.01, 10000, maxwell) * 1.0e-3;
+% % Uniform distribution direcitions
+% thetas = 2 * pi * rand([n_particles 1]);
+% phis   = 2 * pi * rand([n_particles 1]);
+% % Convert speed & direction -> velocity
+% vxxs = vs .* sin(thetas) .* cos(phis);      % mm / us
+% vyys = vs .* sin(thetas) .* sin(phis);      % mm / us
+% vzzs = vs .* cos(thetas);                   % mm / us
+% 
+% cos2 = @(theta) (cos(theta).^2.) / (pi);
+% thetas2 = general_distribution(n_particles, 0.001, 2*pi, cos2);
+% vxxs = vxxs + dissoc_speed * cos(thetas2);
+% vyys = vyys + dissoc_speed * sin(thetas2);
 
-    vxxs(idx) = vxxs(idx) + dissoc_speed * (-1)^idx;
-end
+displacement = 3;
+xxs = normrnd(xx1, displacement, [n_particles 1]);
+yys = normrnd(yy1, displacement, [n_particles 1]);
+zzs = normrnd(zz1, displacement, [n_particles 1]);
+
+vxx1 = 5.0;
+vyy1 = 0.0;
+vzz1 = 0.0;
+vxxs = vxx1 * ones([n_particles 1]);
+vyys = vyy1 * ones([n_particles 1]);
+vzzs = vzz1 * ones([n_particles 1]);
 
 %% Integration
+output_points = int32(100);
+
+% Initialize parallel pool
+if isempty(gcp('nocreate'))
+    parpool
+end
 fprintf("Simulation started.\n")
-tic
+% Prep potential_maps
 potential_maps_size = size(potential_maps);
 potential_maps = reshape(potential_maps, [potential_maps_size(1), dimensions]);
-[xss, yss, zss, tss, itss] = fly_ensemble(1000, n_particles, xxs, yys, zzs, vxxs, vyys, vzzs, ...
-                                      potential_maps, voltages, step_times, ...
-                                      time_steps, dimensions, int32(is_electrode), length(electrode_names), m, q, d, ...
-                                      maxdist, end_time);
+
+% Parallel portion
+tic
+% Distribute work for the batches
+init_xs = reshape(xxs, [batches, particles_per_batch]);
+init_ys = reshape(yys, [batches, particles_per_batch]);
+init_zs = reshape(zzs, [batches, particles_per_batch]);
+init_vxs = reshape(vxxs, [batches, particles_per_batch]);
+init_vys = reshape(vyys, [batches, particles_per_batch]);
+init_vzs = reshape(vzzs, [batches, particles_per_batch]);
+% Prep array to store the results
+result_xs = zeros([batches, particles_per_batch, output_points]);
+result_ys = zeros([batches, particles_per_batch, output_points]);
+result_zs = zeros([batches, particles_per_batch, output_points]);
+result_ts = zeros([batches, particles_per_batch, output_points]);
+iteration_counts = zeros([batches particles_per_batch]);
+% Run the computation
+parfor i = 1:batches
+    [txs, tys, tzs, tts, titss] = fly_ensemble(output_points, int32(particles_per_batch), ...
+                                          init_xs(i, :),  init_ys(i, :),  init_zs(i, :), ...
+                                          init_vxs(i, :), init_vys(i, :), init_vzs(i, :), ...
+                                          potential_maps, voltages, step_times, ...
+                                          int32(time_steps), dimensions, int32(is_electrode), ...
+                                          int32(length(electrode_names)), m, q, d, ...
+                                          maxdist, end_time);
+    result_xs(i, :, :) = txs;
+    result_ys(i, :, :) = tys;
+    result_zs(i, :, :) = tzs;
+    result_ts(i, :, :) = tts;
+    iteration_counts(i, :) = titss;
+end
+% Reformat the results
+xss = reshape(result_xs, [batches * particles_per_batch, output_points]);
+yss = reshape(result_ys, [batches * particles_per_batch, output_points]);
+zss = reshape(result_zs, [batches * particles_per_batch, output_points]);
+tss = reshape(result_ts, [batches * particles_per_batch, output_points]);
 elapsed_time = toc;
-fprintf("Simulation took %.3gs (%d it/s)\n", elapsed_time, round(sum(itss) / elapsed_time));
+fprintf("Simulation took %.3gs (%d it/s)\n", elapsed_time, ...
+    round(sum(iteration_counts, "all") / elapsed_time));
 
 %%
 
-figure;
+figure; 
+zoom = 0.75; % 0 is max range.  1 is focused on the center point.
 image_res = 1024;
 point_size = 3;
 image = zeros(image_res);
 coords = zeros([image_res image_res 2]);
 for idx1 = 1:image_res
     for idx2 = 1:image_res
-        coords(idx1, idx2, :) = d * [double(idx1 * dimensions(1)) / double(image_res), double(idx2 * dimensions(2)) / double(image_res)];
+        coords(idx1, idx2, :) = (1 - zoom) ...
+          * d * [(double(idx1 * dimensions(1))) / double(image_res), ...
+                 (double(idx2 * dimensions(3))) / double(image_res)];
     end
 end
+coords(:, :, 1) = coords(:, :, 1) + (zoom / 2.) * double(dimensions(1));
+coords(:, :, 2) = coords(:, :, 2) + (zoom / 2.) * double(dimensions(3));
 parfor idx = 1:n_particles
     image = image + exp((-double(coords(:, :, 1) - xss(idx, end)).^2 ...
-                         -double(coords(:, :, 2) - yss(idx, end)).^2) / 0.5);
+                         -double(coords(:, :, 2) - zss(idx, end)).^2) / 0.5);
 end
 imshow(image / max(image(:)));
 
@@ -234,15 +330,15 @@ imshow(image / max(image(:)));
 %%
 
 xlims = [-50 50];
-ylims = [-10 360];
+ylims = [-10 300];
 
 aspect_ratio_figure = 1.5;
-width_screen_pixels = 780;
+width_screen_pixels = 640;
 height_screen_pixels = width_screen_pixels*aspect_ratio_figure;
 resolution_dpi = 300;
 
 aspect_ratio_axes = 3.7;
-font_size = 8;
+font_size = 12;
 line_width_axes = 1;
 line_width_plot = 1;
 
@@ -291,23 +387,24 @@ hold(   ax.ion_optics_ashfold,    'on' );
 
 %%%
 
-horizontal_offset = -zz1;
-vertical_offset = 0*-45.5;
+horizontal_offset = -43.0;%-zz1;
+vertical_offset = 0.0;%-45.5;
 
-electrodes = ~flipud( squeeze( is_electrode( :, :, round(dimensions(3)/2.) ) ) )';
+electrodes = ~flipud( squeeze( is_electrode(:, :, round(dimensions(3)/2.)) ) )';
 
-% figure;
 imagesc( ...
-    ... ax.ion_optics_ashfold, ...
-    d*double(1:dimensions(1))+vertical_offset, ...
-    d*double(1:dimensions(2)), ...
-    cat( 3, electrodes, electrodes, electrodes ) ...
+    ax.ion_optics_ashfold, ...
+    d*double(1:dimensions(1))+horizontal_offset, ...
+    d*double(1:dimensions(2))+vertical_offset, ...
+    squeeze(~is_electrode(:, :, round(dimensions(3)/2.)))' ...
     )
+    % cat( 3, electrodes, electrodes, electrodes ) ...
+colormap('gray');
 
 
 plot( ...
     ax.ion_optics_ashfold, ...
-    xss'+vertical_offset, ...
+    xss'+horizontal_offset, ...
     yss', ...
     Color = [0 0 0], ...
     LineStyle='-', ...
@@ -317,16 +414,15 @@ plot( ...
 
 %%
 
-plot3( ...
-    xss'+vertical_offset, ...
-    yss'+vertical_offset, ...
-    zss', ...
-    Color = [0 0 0], ...
-    LineStyle='-', ...
-    LineWidth=0.25 ...
-    );
+% plot3( ...
+%     xss'+vertical_offset, ...
+%     yss'+vertical_offset, ...
+%     zss', ...
+%     Color = [0 0 0], ...
+%     LineStyle='-', ...
+%     LineWidth=0.25 ...
+%     );
 
 
 %%
-
 
