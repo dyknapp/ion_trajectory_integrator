@@ -1,0 +1,9 @@
+# 3DBenchy.jig config. file; created by JIGSAW's MATLAB interface
+  GEOM_FEAT=true
+  GEOM_FILE=E:\ion_trajectory_integrator\files\3DBenchy.msh
+  HFUN_HMAX=1
+  MESH_DIMS=2
+  MESH_FILE=E:\ion_trajectory_integrator\cache\3DBenchy.msh
+  MESH_KERN=delfront
+  MESH_TOP1=true
+  VERBOSITY=1

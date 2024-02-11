@@ -126,16 +126,39 @@ voltages = set_voltage_at_time(1, 25.0, turn_on_time, step_times, voltages);
 % Always have the detector at -2.5kV
 voltages = set_voltage_at_time(8, -2500.0, 0.0, step_times, voltages);
 
+% % Electrode voltages
+% % Repeller:
+% voltages = set_voltage_at_time(1,  3000.0, turn_on_time, step_times, voltages);
+% % Constant:
+% voltages = set_voltage_at_time(2,     0.0, 0.0, step_times, voltages);
+% voltages = set_voltage_at_time(3,    70.2, 0.0, step_times, voltages);
+% voltages = set_voltage_at_time(4, -1818.8, 0.0, step_times, voltages);
+% voltages = set_voltage_at_time(5,  1754.2, 0.0, step_times, voltages);
+% voltages = set_voltage_at_time(6,    -2.1, 0.0, step_times, voltages);
+% voltages = set_voltage_at_time(7, -5000.0, 0.0, step_times, voltages);
+
+% % Electrode voltages
+% % Repeller:
+% voltages = set_voltage_at_time(1,    25.0, turn_on_time, step_times, voltages);
+% % Constant:
+% voltages = set_voltage_at_time(2,     0.0, 0.0, step_times, voltages);
+% voltages = set_voltage_at_time(3,   243.9, 0.0, step_times, voltages);
+% voltages = set_voltage_at_time(4, -7897.0, 0.0, step_times, voltages);
+% voltages = set_voltage_at_time(5,   604.9, 0.0, step_times, voltages);
+% voltages = set_voltage_at_time(6,    13.4, 0.0, step_times, voltages);
+% voltages = set_voltage_at_time(7, -2705.8, 0.0, step_times, voltages);
+
+x = 1.0e+3 * [1.6448    0.0024   -2.9636   -2.4555    0.0853   -2.4202];
 % Electrode voltages
 % Repeller:
-voltages = set_voltage_at_time(1, 1691.6, turn_on_time, step_times, voltages);
+voltages = set_voltage_at_time(1,     x(1), turn_on_time, step_times, voltages);
 % Constant:
-voltages = set_voltage_at_time(2,     0.4, 0.0, step_times, voltages);
-voltages = set_voltage_at_time(3, -1000.0, 0.0, step_times, voltages);
-voltages = set_voltage_at_time(4,  -999.0, 0.0, step_times, voltages);
-voltages = set_voltage_at_time(5,  -979.6, 0.0, step_times, voltages);
-voltages = set_voltage_at_time(6,  -547.1, 0.0, step_times, voltages);
-voltages = set_voltage_at_time(7, -1000.0, 0.0, step_times, voltages);
+voltages = set_voltage_at_time(2,     0.0, 0.0, step_times, voltages);
+voltages = set_voltage_at_time(3,    x(2), 0.0, step_times, voltages);
+voltages = set_voltage_at_time(4,    x(3), 0.0, step_times, voltages);
+voltages = set_voltage_at_time(5,    x(4), 0.0, step_times, voltages);
+voltages = set_voltage_at_time(6,    x(5), 0.0, step_times, voltages);
+voltages = set_voltage_at_time(7,    x(6), 0.0, step_times, voltages);
 
 % If you are curious to see what the potential from electrode n would be:
 % potential_maps_reshaped = reshape(potential_maps, [length(electrode_names) dimensions]);
@@ -269,7 +292,7 @@ fprintf("Simulation took %.3gs (%d it/s)\n", elapsed_time, ...
 %%
 
 figure; 
-zoom = 0.75; % 0 is max range.  1 is focused on the center point.
+zoom = 0.5; % 0 is max range.  1 is focused on the center point.
 image_res = 1024;
 point_size = 3;
 image = zeros(image_res);
@@ -372,6 +395,15 @@ vertical_offset = -45.5;
 
 electrodes = ~flipud( squeeze( is_electrode(:, round(dimensions(2)/2.), :) ) )';
 
+hold on
+% Plot potential after the turn-on time
+
+% turn_on_time_idx = find(turn_on_time < step_times, 1, 'first');
+% electrode_voltages = voltages(turn_on_time_idx, :);
+% the_potential = squeeze((tensorprod(electrode_voltages, squeeze(potential_maps(:, :, round(dimensions(2)/2.), :)), 2, 1)));
+% imagesc(d*double(1:dimensions(1))+vertical_offset, ...
+%         d*double(1:dimensions(3)), ...
+%         the_potential' .* electrodes)
 imagesc( ...
     ax.ion_optics_ashfold, ...
     d*double(1:dimensions(1))+vertical_offset, ...
@@ -388,7 +420,7 @@ plot( ...
     LineStyle='-', ...
     LineWidth=0.25 ...
     );
-
+hold off
 
 %%
 
@@ -402,6 +434,20 @@ plot( ...
 %     );
 
 
-%%
+%% Plot correlations of initial speed / final position
 
+figure
+corrs = corrcoef([xss(:, end) yss(:, end) vxxs(:) vyys(:)]);
 
+tiledlayout(2, 1);
+nexttile
+scatter(vxxs(:) * 1.0e+3, xss(:, end) - mean(xxs), '.k');
+xlabel('Initial X Velocity Component (m/s)')
+ylabel('Displacement from center of detector (mm)')
+title(sprintf('Pearson Coeff: %.3g', corrs(3, 1)));
+
+nexttile
+scatter(vyys(:) * 1.0e+3, yss(:, end) - mean(yys), '.k');
+xlabel('Initial Y Velocity Component (m/s)')
+ylabel('Displacement from center of detector (mm)')
+title(sprintf('Pearson Coeff: %.3g', corrs(4, 2)));

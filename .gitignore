@@ -58,6 +58,8 @@ SIM001_data/
 # DO NOT REMOVE ANYTHING BELOW THIS COMMENT: DOING SO RISKS BREAKING THE AUTOMATIC ENVIRONMENT MANAGEMENT WRITTEN IN MATLAB
 # END OF BOILERPLATE
 # LARGE FILES:
+3DBenchy.stl
+Stanford_Bunny.stl
 SIM001_data/001_linear_paul_trap/quad_doubled.PA#
 SIM001_data/001_linear_paul_trap/quad_doubled.PA1.patxt
 SIM001_data/001_linear_paul_trap/quad_doubled.PA2.patxt
@@ -93,3 +95,8 @@ SIM001_data/009_ashfold_vmi_stack/ion_optics_assy-ashfold-A0.0.pa7
 SIM001_data/009_ashfold_vmi_stack/ion_optics_assy-ashfold-A0.0.pa7.patxt
 SIM001_data/009_ashfold_vmi_stack/ion_optics_assy-ashfold-A0.0.pa8
 SIM001_data/009_ashfold_vmi_stack/ion_optics_assy-ashfold-A0.0.pa8.patxt
+cache/paul_trap.msh
+files/3DBenchy.msh
+files/Stanford_Bunny.msh
+jigsaw-matlab/external/jigsaw/bin/jigsaw.exe
+jigsaw-matlab/external/jigsaw/lib/jigsaw.dll

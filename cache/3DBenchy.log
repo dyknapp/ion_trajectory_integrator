@@ -1,0 +1,146 @@
+ 
+#------------------------------------------------------------
+#
+#   ,o, ,o,       /                                 
+#    `   `  e88~88e  d88~\   /~~~8e Y88b    e    / 
+#   888 888 88   88 C888         88b Y88b  d8b  /   
+#   888 888 "8b_d8"  Y88b   e88~-888  Y888/Y88b/  
+#   888 888  /        888D C88   888   Y8/  Y8/     
+#   88P 888 Cb      \_88P   "8b_-888    Y    Y    
+# \_8"       Y8""8D                             
+#
+#------------------------------------------------------------
+# JIGSAW: an unstructured mesh generation library.  
+#------------------------------------------------------------
+ 
+  JIGSAW VERSION 0.9.15
+
+  Reading CFG. file...
+
+  CFG. data summary...
+
+  GEOM-FILE = E:\ion_trajectory_integrator\files\3DBenchy.msh 
+  MESH-FILE = E:\ion_trajectory_integrator\cache\3DBenchy.msh 
+  HFUN-FILE =  
+  INIT-FILE =  
+  TRIA-FILE =  
+  BNDS-FILE =  
+
+  GEOM-SEED = 8 
+  GEOM-PHI1 = 6.00e+01 
+  GEOM-PHI2 = 6.00e+01 
+  GEOM-ETA1 = 4.50e+01 
+  GEOM-ETA2 = 4.50e+01 
+  GEOM-FEAT = TRUE 
+
+  INIT-NEAR = 1.00e-08 
+
+  HFUN-SCAL = RELATIVE 
+  HFUN-HMAX = 1.00e+00 
+  HFUN-HMIN = 0.00e+00 
+
+  BNDS-KERN = BND-TRIA 
+  MESH-KERN = DELFRONT 
+  MESH-TOP1 = TRUE 
+  MESH-TOP2 = FALSE 
+  MESH-ITER = MAXINT 
+  MESH-DIMS = 2 
+  MESH-SIZ1 = 1.33e+00 
+  MESH-SIZ2 = 1.30e+00 
+  MESH-SIZ3 = 1.29e+00 
+  MESH-EPS1 = 3.33e-01 
+  MESH-EPS2 = 3.33e-01 
+  MESH-RAD2 = 1.05e+00 
+  MESH-RAD3 = 2.05e+00 
+  MESH-OFF2 = 9.00e-01 
+  MESH-OFF3 = 1.10e+00 
+  MESH-SNK2 = 2.00e-01 
+  MESH-SNK3 = 3.33e-01 
+  MESH-VOL3 = 0.00e+00 
+
+  OPTM-KERN = ODT+DQDX 
+  OPTM-ITER = 16 
+  OPTM-QTOL = 1.00e-04 
+  OPTM-QLIM = 9.38e-01 
+  OPTM-ZIP_ = TRUE 
+  OPTM-DIV_ = TRUE 
+  OPTM-TRIA = TRUE 
+  OPTM-DUAL = FALSE 
+
+  Done. (1.18e-04sec)
+
+#------------------------------------------------------------
+
+  Reading GEOM file...
+
+  Done. (6.65e-02sec)
+
+#------------------------------------------------------------
+
+  Forming GEOM data...
+
+  GEOM data summary...
+
+  EUCLIDEAN-MESH
+
+  |NDIMS.| = 3
+
+  |COORD.| = 112569
+  |EDGE-2| = 337998
+  |TRIA-3| = 225706
+
+  |SEEDS.| = 0
+
+  Done. (2.04e-01sec)
+
+#------------------------------------------------------------
+
+  Forming HFUN data...
+
+  HFUN data summary...
+
+  CONSTANT-VALUE
+
+  .VAL(H). = 4.63e+01
+
+  Done. (1.30e-05sec)
+
+#------------------------------------------------------------
+
+  Generate rDT MESH...
+
+#------------------------------------------------------------
+#    |ITER.|      |DEL-1|      |DEL-2|      |DEL-3| 
+#------------------------------------------------------------
+      12500        16742            0            0
+      25000        29287            0            0
+      37500        41945            0            0
+      50000        54043            0            0
+      62500        67893            0            0
+      75000        79685            0            0
+      87500        93160            0            0
+     100000       107402            0            0
+     112500       120737            0            0
+     125000       133026            0            0
+     137500       144646            0            0
+     150000       159041            0            0
+     162500       171795            0            0
+     175000       186188            0            0
+     187500       200545            0            0
+     200000       214064            0            0
+     212500       226931            0            0
+     225000       240098            0            0
+     237500       253489            0            0
+     250000       266718            0            0
+     262500       280900            0            0
+     275000       291655            0            0
+     287500       302905            0            0
+     300000       319173            0            0
+     312500       335935            0            0
+     325000       349731            0            0
+     337500       361291            0            0
+     350000       376173            0            0
+     362500       388243            0            0
+     375000       403889            0            0
+     387500       420297            0            0
+    

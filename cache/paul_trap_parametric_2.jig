@@ -1,0 +1,9 @@
+# paul_trap_parametric_2.jig config. file; created by JIGSAW's MATLAB interface
+  GEOM_FEAT=true
+  GEOM_FILE=E:\ion_trajectory_integrator\files\paul_trap_parametric_2.msh
+  HFUN_HMAX=0.050000000000000003
+  MESH_DIMS=2
+  MESH_FILE=E:\ion_trajectory_integrator\cache\paul_trap_parametric_2.msh
+  MESH_KERN=delfront
+  MESH_TOP1=true
+  VERBOSITY=1

@@ -1,0 +1,9 @@
+# Stanford_Bunny.jig config. file; created by JIGSAW's MATLAB interface
+  GEOM_FEAT=true
+  GEOM_FILE=E:\ion_trajectory_integrator\files\Stanford_Bunny.msh
+  HFUN_HMAX=0.029999999999999999
+  MESH_DIMS=2
+  MESH_FILE=E:\ion_trajectory_integrator\cache\Stanford_Bunny.msh
+  MESH_KERN=delfront
+  MESH_TOP1=true
+  VERBOSITY=1
