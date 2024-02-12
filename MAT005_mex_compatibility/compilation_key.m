@@ -11,4 +11,7 @@ function key = compilation_key()
     key("linspace_fortran")              = {"FOR001_modules/utils.f", "C__001_wrappers/linspace_fortran.c"};
     key("fly_ensemble")                  = {"FOR001_modules/trajectory_integration_module.f", "C__001_wrappers/fly_ensemble.c"};
     key("fly_cloud")                     = {"FOR001_modules/trajectory_integration_module.f", "C__001_wrappers/fly_cloud.c"};
+    key("legendre_f")                    = {"FOR001_modules/multipole_integration.f", "C__001_wrappers/legendre_f.c"};
+    key("Ylm_f")                         = {"FOR001_modules/multipole_integration.f", "C__001_wrappers/Ylm_f.c"};
+    key("inf_trap_bg_gas")               = {"FOR001_modules/multipole_integration.f", "C__001_wrappers/inf_trap_bg_gas.c"};
 end

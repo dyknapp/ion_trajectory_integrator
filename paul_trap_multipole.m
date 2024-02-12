@@ -88,7 +88,7 @@ for idx = 1:n_triangles
         value = areas(idx) * areas(jdx) / dist;
         interaction_matrix(idx, jdx) = value;
     end
-    interaction_matrix(idx, idx) = 0.25 * areas(idx);
+    interaction_matrix(idx, idx) = 0.238 * sqrt(areas(idx));
     fprintf(repmat('\b',1,line_length));
 end
 elapsed = toc;
@@ -110,5 +110,5 @@ fprintf("\nTime taken for matrix solution: %.3g\n", elapsed);
 %% Plot
 
 to_plot = 1:electrode_border(1);
-scatter3(coords(to_plot, 1), coords(to_plot, 2), coords(to_plot, 3), ones(size(solution(to_plot))), solution(to_plot), 'O')
+scatter3(coords(to_plot, 1), coords(to_plot, 2), coords(to_plot, 3), ones(size(solution(to_plot))), solution(to_plot), 'O', 'LineWidth', 15)
 axis image

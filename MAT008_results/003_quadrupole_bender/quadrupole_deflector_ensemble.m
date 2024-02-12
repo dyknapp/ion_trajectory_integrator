@@ -4,13 +4,13 @@ simion_path = "SIM001_data/008_quadrupole_deflector";
 
 % Names of individual files containing electrodes' potentials
 electrode_names = ["COLQUAD5_modified.PA1.patxt", ...
-                   "COLQUAD5_modified.PA2.patxt", ...
                    "COLQUAD5_modified.PA3.patxt", ...
                    "COLQUAD5_modified.PA4.patxt", ...
-                   "COLQUAD5_modified.PA5.patxt", ...
                    "COLQUAD5_modified.PA6.patxt", ...
                    "COLQUAD5_modified.PA7.patxt", ...
-                   "COLQUAD5_modified.PA8.patxt"
+                   "COLQUAD5_modified.PA8.patxt", ...
+                   "COLQUAD5_modified.PA9.patxt", ...
+                   "COLQUAD5_modified.PA10.patxt"
                   ];
 
 start_line = 19;
@@ -84,20 +84,20 @@ is_electrode = temp2;
 voltages = zeros([length(electrode_names) 1]);
 
 % Collimate input
-voltages(4) = -10.0;
+voltages(4) = -1.0;
 
 % Set hyperbolas to voltages
-voltages(2) =  21.5;
-voltages(3) = -21.5;
+voltages(2) =  2.15;
+voltages(3) = -2.15;
 
 % shims should have opposite voltages as their corresponding hyperbolas
-voltages(7) =  1.0;
-voltages(8) = -1.0;
+voltages(7) =  0.1;
+voltages(8) = -0.1;
 
 %%  Set up starting conditions
 
 side_lines = 10;
-initial_energy = 10.0;      %eV
+initial_energy = 1.0;      %eV
 initial_angle = pi / 4.0;
 initial_location = [15 * d, 15 * d]; %mm
 initial_spread = 8; %mm

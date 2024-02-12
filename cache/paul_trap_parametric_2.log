@@ -19,8 +19,8 @@
 
   CFG. data summary...
 
-  GEOM-FILE = E:\ion_trajectory_integrator\files\paul_trap_parametric_2.msh 
-  MESH-FILE = E:\ion_trajectory_integrator\cache\paul_trap_parametric_2.msh 
+  GEOM-FILE = C:\Users\h2p_l\Desktop\ion_trajectory_integrator\files\paul_trap_parametric_2.msh 
+  MESH-FILE = C:\Users\h2p_l\Desktop\ion_trajectory_integrator\cache\paul_trap_parametric_2.msh 
   HFUN-FILE =  
   INIT-FILE =  
   TRIA-FILE =  
@@ -67,13 +67,13 @@
   OPTM-TRIA = TRUE 
   OPTM-DUAL = FALSE 
 
-  Done. (1.23e-04sec)
+  Done. (2.76e-04sec)
 
 #------------------------------------------------------------
 
   Reading GEOM file...
 
-  Done. (1.29e-04sec)
+  Done. (3.50e-04sec)
 
 #------------------------------------------------------------
 
@@ -91,7 +91,7 @@
 
   |SEEDS.| = 0
 
-  Done. (1.76e-04sec)
+  Done. (4.11e-04sec)
 
 #------------------------------------------------------------
 
@@ -103,7 +103,7 @@
 
   .VAL(H). = 2.00e-01
 
-  Done. (6.00e-06sec)
+  Done. (1.50e-05sec)
 
 #------------------------------------------------------------
 
@@ -114,13 +114,13 @@
 #------------------------------------------------------------
         968           32         1934            0
 
-  Done. (7.00e-02sec)
+  Done. (1.51e-01sec)
 
 #------------------------------------------------------------
 
   Forming MESH data...
 
-  Done. (4.62e-04sec)
+  Done. (6.77e-04sec)
 
 #------------------------------------------------------------
 
@@ -132,5 +132,5 @@
 
   Writing MESH file...
 
-  Done. (1.70e-03sec)
+  Done. (2.30e-03sec)
 
