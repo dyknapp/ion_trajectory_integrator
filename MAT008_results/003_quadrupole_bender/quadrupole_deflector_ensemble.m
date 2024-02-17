@@ -147,3 +147,155 @@ for idx = 1:particles
     end
 end
 hold off
+
+%% With new integrator
+
+sample_dist = 0.5;
+position = [xx yy];
+velocity = v * [cos(initial_angle) sin(initial_angle)];
+
+tic
+[trajectory, death, its, datas] = ...
+    ray_optics_spaced(position, velocity, sample_dist, int32(is_electrode), ...
+                      potential_maps, voltages, int32(dimensions), ...
+                      length(electrode_names), m, q, d, maxdist, end_time);
+toc
+trajectory = trajectory(1:datas-1, :);
+
+% plotting
+figure
+imagesc(d*(0:dimensions(1)-1), d*(1:dimensions(2)-1), is_electrode)
+xlabel("x (mm)"); ylabel("y (mm)"); set(gca,'YDir','normal'); colormap("gray");
+axis image
+hold on
+if death == 1
+    plot(trajectory(:, 1), trajectory(:, 2), '-g')
+elseif death == 2
+    plot(trajectory(:, 1), trajectory(:, 2), '-r')
+end
+hold off
+
+%% Faster FORTRAN
+
+positions = [xxs yys]'; velocities = [vxxs; vyys];
+tic
+[trajectories, deaths, itss, datass] = ...
+    ray_optics_spaced_ensemble(length(offsets), positions, velocities, ...
+                               sample_dist, int32(is_electrode), ...
+                               potential_maps, voltages, int32(dimensions), ...
+                               length(electrode_names), m, q, d, maxdist, end_time);
+toc
+trajectories = reshape(trajectories, [length(offsets) 1024 3]);
+
+
+%% Plot the paths
+
+figure
+imagesc(d*(0:dimensions(1)-1), d*(1:dimensions(2)-1), is_electrode)
+xlabel("x (mm)"); ylabel("y (mm)"); set(gca,'YDir','normal'); colormap("gray");
+axis image
+hold on
+for idx = 1:length(offsets)
+    if offsets(idx) == 0
+        color = 'r';
+    else
+        color = 'g';
+    end
+    path = squeeze(trajectories(idx, 1:datass(idx), :));
+    plot(path(:, 1), path(:, 2), color)
+end
+hold off
+axis image
+xlim([0 dimensions(1)] * d)
+ylim([0 dimensions(2)] * d)
+
+%% Liouville's theorem: interpolations and derivatives
+
+% Some stats to help with config
+times = squeeze(trajectories(:, :, 3));
+fprintf("Time that the last particle dies: %.3gus\n", max(times, [], "all"))
+fprintf("Mean death time of all particles: %.3gus\n", mean(max(times, [], 2)))
+
+% For Liouville plot
+% 0, 3.5, 8
+t = 17;
+position_axis = 2;
+velocity_axis = 1;
+max_shown_displacement = 5.0;
+max_shown_speed        = 5.0;
+
+gif = false;
+if gif
+    !del quadrupole_Liouville.gif
+    figure('Position', [0 0 1000 500])
+end
+for gif_time = linspace(0, mean(max(times, [], 2)), 300)
+    if gif
+        t = gif_time;
+    end
+    
+    % Construct the positions and velocities
+    positions = zeros([1 length(offsets)]); velocities = positions;
+    death_times = max(times, [], 2);
+    for idx = 1:length(offsets)
+        if death_times(idx) >= t
+            positions(idx) = interpolate_position(squeeze(trajectories(idx, 1:datass(idx), ...
+                                [position_axis 3]))',   t);
+            velocities(idx) = interpolate_position(squeeze(trajectories(idx, 1:datass(idx), ...
+                                [velocity_axis 3]))', t);
+        end
+    end
+    % Plot it
+    subplot(1, 2, 1); % The phase space
+    scatter(positions - mean(positions), velocities - mean(velocities), '.k');
+    xlabel(sprintf('position axis %d (mm)', position_axis));
+    ylabel(sprintf('velocity axis %d (mm/us)', velocity_axis));
+    xlim([-1 1] * max_shown_displacement);
+    ylim([-1 1] * max_shown_speed);
+    
+    subplot(1, 2, 2); % Where are the particles?
+    imagesc(d*(0:dimensions(1)-1), d*(1:dimensions(2)-1), is_electrode)
+    axis image
+    xlabel("x (mm)"); ylabel("y (mm)"); set(gca,'YDir','normal'); colormap("gray");
+    hold on
+    for idx = 1:length(offsets)
+        if death_times(idx) >= t
+            xs(idx) = interpolate_position(squeeze(trajectories(idx, 1:datass(idx), ...
+                                [1 3]))',   t);
+            ys(idx) = interpolate_position(squeeze(trajectories(idx, 1:datass(idx), ...
+                                [2 3]))',   t);
+        end
+    end
+    scatter(xs, ys, '.g', LineWidth=5)
+    hold off
+    if gif
+        exportgraphics(gcf,'quadrupole_Liouville.gif','Append',true);
+    else
+        break
+    end
+end
+
+%% FUNCTIONS
+
+function position = interpolate_position(trajectory, time)
+    % trajectory should be a (position, time), 2xN row matrix
+    position = interp1(trajectory(2, :), trajectory(1, :), time, 'pchip', 'extrap');
+end
+
+function velocity = interpolate_velocity(trajectory, time)
+    % trajectory should be a (velocity, time), 2xN row matrix
+    time_diffs = diff(trajectory(2, :));
+    velocities = diff(trajectory(1, :)) / time_diffs;
+    middle_times = trajectory(2, 1:(end - 1)) + time_diffs*0.5;
+    velocity = interp1(middle_times, velocities, time, 'pchip', 'extrap');
+end
+
+
+
+
+
+
+
+
+
+

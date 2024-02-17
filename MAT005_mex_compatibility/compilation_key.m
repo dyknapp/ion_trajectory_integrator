@@ -14,4 +14,6 @@ function key = compilation_key()
     key("legendre_f")                    = {"FOR001_modules/multipole_integration.f", "C__001_wrappers/legendre_f.c"};
     key("Ylm_f")                         = {"FOR001_modules/multipole_integration.f", "C__001_wrappers/Ylm_f.c"};
     key("inf_trap_bg_gas")               = {"FOR001_modules/multipole_integration.f", "C__001_wrappers/inf_trap_bg_gas.c"};
+    key("ray_optics_spaced")             = {"FOR001_modules/ion_optics.f", "C__001_wrappers/ray_optics_spaced.c"};
+    key("ray_optics_spaced_ensemble")    = {"FOR001_modules/ion_optics.f", "C__001_wrappers/ray_optics_spaced_ensemble.c"};
 end

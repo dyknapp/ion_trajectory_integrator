@@ -104,10 +104,29 @@ C     Correct the coordinates' offset and compute the E field
             end if
       end function
 
-
+      function how_dead(dimensions, is_electrode, x, y, d)
+      integer(c_int), dimension(2), intent(in) :: dimensions
+      integer(c_int), dimension(dimensions(1), dimensions(2)), 
+     &      intent(in):: is_electrode
+      real(c_double), intent(in) :: x, y, d
+      integer(c_int) :: how_dead
+      how_dead = 0
+      if        ((x < 2 * d                  ) 
+     &      .or. (y < 2 * d                  )
+     &      .or. (x > (dimensions(1) - 2) * d)
+     &      .or. (y > (dimensions(2) - 2) * d)) then
+            how_dead = 1
+            return
+      else
+            if (is_electrode(NINT(x/d), NINT(y/d)).eq.1) then
+                  how_dead = 2
+                  return
+            end if
+      end if
+      end function
 
 C     Subroutine for Verlet integration of ion trajectory.
-      subroutine ray_optics_2D(xx, yy, vxx, vyy,
+      subroutine ray_optics_2D(xx, yy, vxx, vyy, is_electrode,
      &                        potential_maps, voltages, dimensions,
      &                        n_electrodes, m, q, din, maxdist, maxt,
      &                        x_traj, y_traj, ts, its)
@@ -124,6 +143,8 @@ C     Dummy variables:
      &      intent(in) :: potential_maps
       real(c_double), dimension(MAX_TRAJECTORY_POINTS), intent(out)
      &      :: x_traj, y_traj, ts
+      integer(c_int), dimension(dimensions(1), dimensions(2)),
+     &      intent(in) :: is_electrode
       real(c_double), intent(out) :: its
 
 C     Local variables
@@ -169,9 +190,10 @@ C     Check if particle is alive
       dead = is_dead(dimensions, x, y, d)
       if (dead) then
             t = mt;
+      else
+            call field_at2D(x, y, d, potential_map, dimensions,
+     &            ex, ey)
       end if
-      call field_at2D(x, y, d, potential_map, dimensions,
-     &      ex, ey)
       
       do while ((t < mt) .and. (iter < MAX_TRAJECTORY_POINTS))
             iter = iter + 1
@@ -379,4 +401,188 @@ C           Check if particle is alive
 
       end subroutine
 
+
+
+      subroutine ray_optics_spaced(position, velocity, sample_dist,
+     &            is_electrode, potential_maps, voltages, dimensions,
+     &            n_electrodes, m, q, din, maxdist, maxt,
+     &            trajectory, death, its, datas)
+     & bind(c, name='ray_optics_spaced')
+C     Variable declarations:
+C     Dummy variables:
+      real(c_double), dimension(2), intent(in) :: position, velocity
+      real(c_double), intent(in) :: m, q, din, sample_dist
+      real(c_double), intent(in) :: maxdist, maxt
+      integer(c_int), intent(in) :: n_electrodes
+      real(c_double), dimension(n_electrodes), intent(in) :: voltages
+      integer(c_int), dimension(2), intent(in) :: dimensions
+      integer(c_int), dimension(dimensions(1), dimensions(2)), 
+     &      intent(in):: is_electrode
+      real(c_double),
+     &      dimension(n_electrodes, dimensions(1), dimensions(2)), 
+     &      intent(in) :: potential_maps
+      real(c_double), dimension(1024, 3), intent(out) :: trajectory
+      integer(c_int), intent(out) :: its, datas, death
+
+C     Local variables
+      real(c_double), 
+     &      dimension(dimensions(1), dimensions(2)) :: potential_map
+      real(c_double) :: t, mdist, mt, cmr,
+     &      a, v, tv, ta, tstep, ex, ey, ex_new, ey_new, d
+      real(c_double), dimension(2) :: pos, vel, last_rec, accel, accel_n
+      integer(c_int) :: idx, iter, sample_interval, data_points
+      logical :: dead
+
+      sample_interval = MAX_TRAJECTORY_POINTS / 1024
+
+C     Calculate the potential based on the given electrode voltages
+      potential_map = 0.0;
+
+      do idx = 1, n_electrodes
+            do ix = 1, dimensions(1)
+                  do iy = 1, dimensions(2)
+                        potential_map(ix, iy) = potential_map(ix, iy)
+     &                        + (potential_maps(idx, ix, iy)
+     &                        * voltages(idx))
+                  end do
+            end do
+      end do
+      
+C     Unit conversions.  For simplicity, we work with SI units within 
+C           this function.
+      pos = position * 1.0e-3 ! mm -> m
+      last_rec = pos
+      vel = velocity * 1.0e+3 ! mm/us -> m/s
+      
+      t = 0.0;
+      d = din * 1.0e-3                          ! mm -> m
+      mdist = maxdist * 1.0e-3
+      mt = maxt * 1.0e-6                        ! us -> s
+
+C     Charge-to-mass ratio
+      cmr = ((1.602176634e-19) * q) / ((1.660539067e-27) * m);
+
+
+C     Main loop of integration
+      iter = 0
+C     Check if particle is alive
+      death = how_dead(dimensions, is_electrode, pos(1), pos(2), d)
+      if (death.gt.0) then
+            t = mt;
+      else
+            call field_at2D(pos(1),pos(2), d, potential_map, dimensions,
+     &            ex, ey)
+      end if
+      accel = (/ex, ey/) * cmr
+      data_points = 0
+      x_traj = 0.0
+      y_traj = 0.0
+      ts     = 0.0
+      do while ((t.lt.mt) .and. (data_points.lt.1024))
+            iter = iter + 1
+
+C           Record current state before it gets modified by the 
+C                 integration step
+            if (NORM2(pos - last_rec).ge.(sample_dist*1.0e-3)) then
+                  data_points = data_points + 1
+                  last_rec = pos
+                  trajectory(data_points, 1:2) = pos * 1.0e+3
+                  trajectory(data_points, 3)   = t   * 1.0e+6
+            end if
+            
+C           Integration timestep calculation
+            a = NORM2(accel)
+            v = NORM2(vel)
+
+            a = a + 1.0e-15
+            v = v + 1.0e-15
+            tv = mdist / v
+            ta = SQRT(2.0 * mdist / a)
+            tstep = tv * ta / (tv + ta)
+            tstep = MIN(tstep, mt * 1.0e-3)
+            t = t + tstep
+
+C           Integration step
+            pos = pos + tstep*vel + tstep*tstep*accel/2.
+
+C           Check if particle is alive
+            death = how_dead(dimensions,is_electrode,pos(1),pos(2),d)
+            if (death.gt.0) then
+                  t = mt;
+            end if
+
+C           Calculate new fields
+            call field_at2D(pos(1),pos(2), d, potential_map, dimensions,
+     &            ex, ey)
+            accel_n = (/ex, ey/) * cmr
+            vel = vel + tstep*(accel + accel_n)/2.
+
+            accel = accel_n
+      end do
+      its = iter
+      datas = data_points
+      end subroutine
+
+
+
+      subroutine ray_optics_spaced_ensmble(particles, 
+     &            positions, velocities,
+     &            sample_dist, is_electrode, potential_maps, voltages, 
+     &            dimensions, n_electrodes, m, q, din, maxdist, maxt,
+     &            trajectories, deaths, itss, datass)
+     & bind(c, name='ray_optics_spaced_ensemble')
+C     Variable declarations:
+C     Dummy variables:
+      integer(c_int), intent(in) :: n_electrodes, particles
+      real(c_double), dimension(2, particles), intent(in) 
+     &      :: positions, velocities
+      real(c_double), intent(in) :: m, q, din, sample_dist
+      real(c_double), intent(in) :: maxdist, maxt
+      real(c_double), dimension(n_electrodes), intent(in) :: voltages
+      integer(c_int), dimension(2), intent(in) :: dimensions
+      integer(c_int), dimension(dimensions(1), dimensions(2)), 
+     &      intent(in):: is_electrode
+      real(c_double),
+     &      dimension(n_electrodes, dimensions(1), dimensions(2)), 
+     &      intent(in) :: potential_maps
+      real(c_double), dimension(particles, 1024 * 3), intent(out) 
+     &      :: trajectories
+      integer(c_int), dimension(particles), intent(out) 
+     &      :: itss, datass, deaths
+
+      integer(c_int) :: idx, its, datas, death
+      real(c_double), dimension(1024, 3) :: trajectory
+
+      !$OMP PARALLEL DO
+      do idx = 1,particles
+            trajectory = 0.
+            call ray_optics_spaced(positions(:,idx), velocities(:,idx), 
+     &            sample_dist, is_electrode, potential_maps,
+     &            voltages, dimensions,
+     &            n_electrodes, m, q, din, maxdist, maxt,
+     &            trajectory, death, its, datas)
+            trajectories(idx,:)
+     &            = RESHAPE(trajectory, (/1024 * 3/))
+            deaths(idx) = death
+            itss(idx) = its
+            datass(idx) = datas
+      end do
+      !$OMP END PARALLEL DO
+      end subroutine
+
       end module
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
