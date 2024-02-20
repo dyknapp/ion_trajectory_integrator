@@ -17,7 +17,7 @@ cloud_temperature =  10.0;           % Kelvin  : Initial temperature of cloud
 % Simulation parameters
 end_time   =  100.0;                 % us : Time cutoff for simulation
 maxdist =  0.0001;                   % mm : Propagation distance for adaptive timestep
-sample_dist = 0.5;                   % mm : Interval for recording trajectory data samples
+sample_dist = 0.25;                   % mm : Interval for recording trajectory data samples
 
 %% Initialize
 
@@ -135,166 +135,180 @@ positions(2, :) = positions(2, :) + initial_location(2);
 
 %% Integrate trajectories
 
-tic
-[trajectories, deaths, itss, datass] = ...
-    ray_optics_spaced_ensemble(particles, positions, velocities, ...
-                               sample_dist, int32(is_electrode), ...
-                               potential_maps, voltages, int32(dimensions), ...
-                               length(electrode_names), m, q, d, maxdist, end_time);
-toc
-trajectories = reshape(trajectories, [particles 1024 3]);
+% tic
+% [trajectories, deaths, itss, datass] = ...
+%     ray_optics_spaced_ensemble(particles, positions, velocities, ...
+%                                sample_dist, int32(is_electrode), ...
+%                                potential_maps, voltages, int32(dimensions), ...
+%                                length(electrode_names), m, q, d, maxdist, end_time);
+% toc
+% trajectories = reshape(trajectories, [particles 1024 3]);
 
-% %% Plot the paths
+%%
+system(sprintf("ifort /fpp /c /dll /O3 " + ...
+"%s -o ./FOR001_modules/%s.o", 'FOR001_modules\ion_optics.f', 'ion_optics'));
+mex -g COMPFLAGS='$COMPFLAGS /O3 /Qopenmp ' C__001_wrappers\ray_optics_spaced_ensemble_parallel.cpp FOR001_modules\ion_optics.o
+
+%%
+tic
+[trajectories, deaths, itss, datass] = ray_optics_spaced_ensemble_parallel(particles, positions, velocities, ...
+                                            sample_dist, int32(is_electrode), ...
+                                            potential_maps, voltages, int32(dimensions), ...
+                                            length(electrode_names), m, q, d, maxdist, end_time);
+toc
+
+%% Plot the paths
+
+figure
+is_electrode = int32(is_electrode);
+imagesc(d*(0:dimensions(1)-1), d*(1:dimensions(2)-1), is_electrode)
+xlabel("x (mm)"); ylabel("y (mm)"); set(gca,'YDir','normal'); colormap("gray");
+axis image
+hold on
+for idx = 1:particles
+    if datass(idx) > 1
+        if deaths(idx) == 1
+            color = 'g';
+        elseif deaths(idx) == 2
+            color = 'r';
+        else
+            color = 'y';
+        end
+        path = squeeze(trajectories(idx, 1:datass(idx), :));
+        plot(path(:, 1), path(:, 2), color)
+    end
+end
+hold off
+axis image
+xlim([0 dimensions(1)] * d)
+ylim([0 dimensions(2)] * d)
+
+% %% Liouville's theorem: interpolations and derivatives
 % 
-% figure
-% imagesc(d*(0:dimensions(1)-1), d*(1:dimensions(2)-1), is_electrode)
-% xlabel("x (mm)"); ylabel("y (mm)"); set(gca,'YDir','normal'); colormap("gray");
-% axis image
-% hold on
-% for idx = 1:particles
-%     if datass(idx) > 1
-%         if deaths(idx) == 1
-%             color = 'g';
-%         elseif deaths(idx) == 2
-%             color = 'r';
-%         else
-%             color = 'y';
+% % Some stats to help with config
+% times = squeeze(trajectories(:, :, 3));
+% fprintf("Time that the last particle dies: %.3gus\n", max(times, [], "all"))
+% fprintf("Mean death time of all particles: %.3gus\n", mean(max(times, [], 2)))
+% 
+% % For Liouville plot
+% % 0, 3.5, 8
+% t = 8;
+% max_shown_displacement = 10.0;
+% max_shown_speed        = 10.0;
+% 
+% dims = 2;
+% subplots_horizontal = 2;
+% subplots_vertical = 3;
+% 
+% death_times = max(times, [], 2);
+% 
+% gif = false;
+% if gif
+%     !del quadrupole_Liouville.gif
+%     figure('Position', [0 0 750 1000])
+% end
+% frame_times = linspace(0, mean(max(times, [], 2)), 300);
+% emittances = zeros(size(frame_times));
+% alive_particles = zeros(size(frame_times));
+% frame_number = 0;
+% for gif_time = frame_times
+%     frame_number = frame_number + 1;
+%     if gif
+%         t = gif_time;
+%     end
+% 
+%     % Construct the positions and velocities
+%     positions = zeros([dims particles]);
+%     velocities = zeros([dims particles]);
+%     for position_axis = 1:dims
+%         for velocity_axis = 1:dims
+%             for idx = 1:particles
+%                 if (death_times(idx) >= t) && (datass(idx) >= 4)
+%                     positions(position_axis, idx) = interpolate_position(squeeze(trajectories(idx, 1:datass(idx), ...
+%                                         [position_axis 3]))',   t);
+%                     velocities(velocity_axis, idx) = interpolate_velocity(squeeze(trajectories(idx, 1:datass(idx), ...
+%                                         [velocity_axis 3]))', t);
+%                 else
+%                     positions(position_axis, idx) = NaN;
+%                     velocities(velocity_axis, idx) = NaN;
+%                 end
+%             end
 %         end
-%         path = squeeze(trajectories(idx, 1:datass(idx), :));
-%         plot(path(:, 1), path(:, 2), color)
+%     end
+%     % Plot it
+%     subplot_count = 0;
+%     for position_axis = 1:dims
+%         for velocity_axis = 1:dims
+%             subplot_count = subplot_count + 1;
+%             subplot(subplots_vertical, subplots_horizontal, subplot_count); % The phase space
+%             idcs = ~(isnan(positions(position_axis, :)) | isnan(velocities(velocity_axis, :)));
+%             scatter(positions(position_axis, idcs) - mean(positions(position_axis, idcs)), ...
+%                 velocities(velocity_axis, idcs) - mean(velocities(velocity_axis, idcs)), '.k');
+%             xlabel(sprintf('position axis %d (mm)', position_axis));
+%             ylabel(sprintf('velocity axis %d (mm/us)', velocity_axis));
+%             xlim([-1 1] * max_shown_displacement);
+%             ylim([-1 1] * max_shown_speed);
+%         end
+%     end
+% 
+%     subplot(subplots_vertical, subplots_horizontal, 5); % Where are the particles?
+%     imagesc(d*(0:dimensions(1)-1), d*(1:dimensions(2)-1), is_electrode)
+%     axis image
+%     xlabel("x (mm)"); ylabel("y (mm)"); set(gca,'YDir','normal'); colormap("gray");
+%     hold on
+%     for idx = 1:particles
+%         if (death_times(idx) >= t) && (datass(idx) >= 4)
+%             xs(idx) = interpolate_position(squeeze(trajectories(idx, 1:datass(idx), ...
+%                                 [1 3]))',   t);
+%             ys(idx) = interpolate_position(squeeze(trajectories(idx, 1:datass(idx), ...
+%                                 [2 3]))',   t);
+%         else
+%             xs(idx) = NaN;
+%             ys(idx) = NaN;
+%         end
+%     end
+%     xs = rmmissing(xs);
+%     ys = rmmissing(ys);
+%     alive_particles(frame_number) = length(xs);
+%     scatter(xs, ys, '.g', LineWidth=0.5)
+%     hold off
+% 
+%     subplot(subplots_vertical, subplots_horizontal, 6);
+%     imagesc(d*(0:dimensions(1)-1), d*(1:dimensions(2)-1), is_electrode)
+%     xlabel("x (mm)"); ylabel("y (mm)"); set(gca,'YDir','normal'); colormap("gray");
+%     axis image
+%     hold on
+%     for idx = 1:particles
+%         if datass(idx) > 1
+%             if deaths(idx) == 1
+%                 color = 'g';
+%             elseif deaths(idx) == 2
+%                 color = 'r';
+%             else
+%                 color = 'y';
+%             end
+%             path = squeeze(trajectories(idx, 1:datass(idx), :));
+%             plot(path(:, 1), path(:, 2), color)
+%         end
+%     end
+%     hold off
+%     axis image
+%     xlim([0 dimensions(1)] * d)
+%     ylim([0 dimensions(2)] * d)
+% 
+%     % Phase space volume calculation
+%     volume = 2 * pi^(dims/2.) / (dims * gamma(dims/2.)) ...
+%         * sqrt(det(cov([positions' velocities'], "omitrows")));
+%     emittances(frame_number) = volume;
+% 
+%     sgtitle(sprintf('t = %.3f (us), Phase space volume = %.3g', t, volume))
+% 
+%     if gif
+%         exportgraphics(gcf,'quadrupole_Liouville.gif','Append',true);
+%     else
+%         break
 %     end
 % end
-% hold off
-% axis image
-% xlim([0 dimensions(1)] * d)
-% ylim([0 dimensions(2)] * d)
-
-%% Liouville's theorem: interpolations and derivatives
-
-% Some stats to help with config
-times = squeeze(trajectories(:, :, 3));
-fprintf("Time that the last particle dies: %.3gus\n", max(times, [], "all"))
-fprintf("Mean death time of all particles: %.3gus\n", mean(max(times, [], 2)))
-
-% For Liouville plot
-% 0, 3.5, 8
-t = 8;
-max_shown_displacement = 10.0;
-max_shown_speed        = 10.0;
-
-dims = 2;
-subplots_horizontal = 2;
-subplots_vertical = 3;
-
-death_times = max(times, [], 2);
-
-gif = false;
-if gif
-    !del quadrupole_Liouville.gif
-    figure('Position', [0 0 750 1000])
-end
-frame_times = linspace(0, mean(max(times, [], 2)), 300);
-emittances = zeros(size(frame_times));
-alive_particles = zeros(size(frame_times));
-frame_number = 0;
-for gif_time = frame_times
-    frame_number = frame_number + 1;
-    if gif
-        t = gif_time;
-    end
-    
-    % Construct the positions and velocities
-    positions = zeros([dims particles]);
-    velocities = zeros([dims particles]);
-    for position_axis = 1:dims
-        for velocity_axis = 1:dims
-            for idx = 1:particles
-                if (death_times(idx) >= t) && (datass(idx) >= 4)
-                    positions(position_axis, idx) = interpolate_position(squeeze(trajectories(idx, 1:datass(idx), ...
-                                        [position_axis 3]))',   t);
-                    velocities(velocity_axis, idx) = interpolate_velocity(squeeze(trajectories(idx, 1:datass(idx), ...
-                                        [velocity_axis 3]))', t);
-                else
-                    positions(position_axis, idx) = NaN;
-                    velocities(velocity_axis, idx) = NaN;
-                end
-            end
-        end
-    end
-    % Plot it
-    subplot_count = 0;
-    for position_axis = 1:dims
-        for velocity_axis = 1:dims
-            subplot_count = subplot_count + 1;
-            subplot(subplots_vertical, subplots_horizontal, subplot_count); % The phase space
-            idcs = ~(isnan(positions(position_axis, :)) | isnan(velocities(velocity_axis, :)));
-            scatter(positions(position_axis, idcs) - mean(positions(position_axis, idcs)), ...
-                velocities(velocity_axis, idcs) - mean(velocities(velocity_axis, idcs)), '.k');
-            xlabel(sprintf('position axis %d (mm)', position_axis));
-            ylabel(sprintf('velocity axis %d (mm/us)', velocity_axis));
-            xlim([-1 1] * max_shown_displacement);
-            ylim([-1 1] * max_shown_speed);
-        end
-    end
-    
-    subplot(subplots_vertical, subplots_horizontal, 5); % Where are the particles?
-    imagesc(d*(0:dimensions(1)-1), d*(1:dimensions(2)-1), is_electrode)
-    axis image
-    xlabel("x (mm)"); ylabel("y (mm)"); set(gca,'YDir','normal'); colormap("gray");
-    hold on
-    for idx = 1:particles
-        if (death_times(idx) >= t) && (datass(idx) >= 4)
-            xs(idx) = interpolate_position(squeeze(trajectories(idx, 1:datass(idx), ...
-                                [1 3]))',   t);
-            ys(idx) = interpolate_position(squeeze(trajectories(idx, 1:datass(idx), ...
-                                [2 3]))',   t);
-        else
-            xs(idx) = NaN;
-            ys(idx) = NaN;
-        end
-    end
-    xs = rmmissing(xs);
-    ys = rmmissing(ys);
-    alive_particles(frame_number) = length(xs);
-    scatter(xs, ys, '.g', LineWidth=0.5)
-    hold off
-
-    subplot(subplots_vertical, subplots_horizontal, 6);
-    imagesc(d*(0:dimensions(1)-1), d*(1:dimensions(2)-1), is_electrode)
-    xlabel("x (mm)"); ylabel("y (mm)"); set(gca,'YDir','normal'); colormap("gray");
-    axis image
-    hold on
-    for idx = 1:particles
-        if datass(idx) > 1
-            if deaths(idx) == 1
-                color = 'g';
-            elseif deaths(idx) == 2
-                color = 'r';
-            else
-                color = 'y';
-            end
-            path = squeeze(trajectories(idx, 1:datass(idx), :));
-            plot(path(:, 1), path(:, 2), color)
-        end
-    end
-    hold off
-    axis image
-    xlim([0 dimensions(1)] * d)
-    ylim([0 dimensions(2)] * d)
-
-    % Phase space volume calculation
-    volume = 2 * pi^(dims/2.) / (dims * gamma(dims/2.)) ...
-        * sqrt(det(cov([positions' velocities'], "omitrows")));
-    emittances(frame_number) = volume;
-
-    sgtitle(sprintf('t = %.3f (us), Phase space volume = %.3g', t, volume))
-
-    if gif
-        exportgraphics(gcf,'quadrupole_Liouville.gif','Append',true);
-    else
-        break
-    end
-end
 
 %% Emittance variation
 figure

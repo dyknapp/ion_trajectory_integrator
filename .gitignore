@@ -55,12 +55,26 @@ octave-workspace
 SIM001_data/
 *.pa*
 
+# MATLAB Jigsaw files
+MAT001_functions/jigsaw-matlab/*
+*.msh
+*.jig
+*.stl
+
+# Images
+*.png
+*.fig
+*.gif
+
 # DO NOT REMOVE ANYTHING BELOW THIS COMMENT: DOING SO RISKS BREAKING THE AUTOMATIC ENVIRONMENT MANAGEMENT WRITTEN IN MATLAB
 # END OF BOILERPLATE
 # LARGE FILES:
 3DBenchy.stl
 Stanford_Bunny.stl
 quadrupole_Liouville.gif
+ray_optics_spaced_ensemble_parallel.mexw64.pdb
+MAT001_functions/jigsaw-matlab/external/jigsaw/bin/jigsaw.exe
+MAT001_functions/jigsaw-matlab/external/jigsaw/lib/jigsaw.dll
 SIM001_data/001_linear_paul_trap/quad_doubled.PA#
 SIM001_data/001_linear_paul_trap/quad_doubled.PA1.patxt
 SIM001_data/001_linear_paul_trap/quad_doubled.PA2.patxt

@@ -553,7 +553,6 @@ C     Dummy variables:
       integer(c_int) :: idx, its, datas, death
       real(c_double), dimension(1024, 3) :: trajectory
 
-      !$OMP PARALLEL DO
       do idx = 1,particles
             trajectory = 0.
             call ray_optics_spaced(positions(:,idx), velocities(:,idx), 
@@ -567,7 +566,6 @@ C     Dummy variables:
             itss(idx) = its
             datass(idx) = datas
       end do
-      !$OMP END PARALLEL DO
       end subroutine
 
       end module
