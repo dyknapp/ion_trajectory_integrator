@@ -27,11 +27,13 @@ cloud = placeAtoms(sim, protons, [-d/2. d/2.]', [-b/2. b/2.]', [0. 0.]');
 %Configure outputs.
 sim.Add(dump('positions.txt', {'id', 'x', 'y', 'z'}, 1));
 pylion_steps = round(1.0e-6 * end_time / sim.TimeStep);
-sprintf("Pylion timesteps: %d\n", pylion_steps)
+fprintf("Pylion timesteps: %d\n", pylion_steps);
 
 %% Run simulation
 sim.Add(evolve(pylion_steps));
+tic
 sim.Execute();
+toc 
 
 %% Load the data
 % Load the results from the output file:

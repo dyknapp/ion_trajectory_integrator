@@ -1,5 +1,5 @@
 # LAMMPS Input file generated using LIon, a Matlab wrapper for ion trap simulations
-# Lion Version: 28707b2c631f4dff0ccd00b379fa58ffd966ed1b
+# Lion Version: dd600833edb939cbcdc3980769b2fc3e05916dee
 ###################################################################################
 
 # No GPU acceleration will be enabled. (sim.GPUAccel = false)
@@ -37,12 +37,12 @@ fix extra all print 10 "SIMULATION RUNNING----------------------"
 
 # Group definitions:
 # (1 group(s))
-group grp_poxht type 1 
+group grp_jtuem type 1 
 
 # Time integration: 
 group nonRigidBody union all
 fix timeIntegrator nonRigidBody nve
 #Dump output
-dump cfxdvn all custom 1 positions.txt id x y z 
+dump vgvgyj all custom 1 positions.txt id x y z 
 #Run simulation
 run 1000000

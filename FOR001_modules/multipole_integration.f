@@ -399,10 +399,36 @@ C     Initialize the CDF for the Maxwell-Boltzmann
       rpts = sample_idx - 1
       end subroutine
 
-      subroutine inf_trap_cloud(position, velocity, m, q, coll_rate,
-     &    room_temp, omega, depth, R, max_t, max_dist, averaging_window,
-     &    pts, four_trajectory, its, rpts, collisions)
-     & bind(c, name="inf_trap_bg_gas")
+      subroutine inf_trap_cloud(
+     &    particles, 
+     &    positions,
+     &    velocities, 
+     &    ms, 
+     &    qs,
+     &    omega, 
+     &    depth, 
+     &    R, 
+     &    max_t,
+     &    max_dist,
+     &    record_step,
+     &    four_trajectory, 
+     &    its, 
+     &    rpts, 
+     &    collisions)
+     & bind(c, name="inf_trap_cloud")
+
+C     Argument specifications:
+C           particles        : number of ions to simulate
+C           positions        : 3x[particles] array: initial ( x, y, z)
+C           velocities       : 3x[particles] array: initial (vx,vy,vz)
+C           ms               : 1x[particles] array: masses (amu)
+C           qs               : 1x[particles] array: charges (au)
+C           omega            : RF drive frequency
+C           depth            : Trap depth at distance R from trap center
+C           max_t            : Time for cutting off the simulation
+C           max_dist         : for setting adaptive timestep travel
+C           record_step      : how often to record a trajectory point
+
 C     Variable declarations
       integer(c_int), intent(in) :: pts, averaging_window
       real(c_double), dimension(3), intent(in) :: position, velocity
@@ -449,7 +475,6 @@ C     Initialize the CDF for the Maxwell-Boltzmann
       t = 0.
       last_coll = 0.
       collisions = 0
-      call RANDOM_NUMBER(coll_random)
       next_sample = 0.
       window_end = 0
       sample_idx = 0
@@ -490,33 +515,6 @@ C     Initialize the CDF for the Maxwell-Boltzmann
 
             call inf_trap_field(pos, t, omega, depth, rt, field)
             accel_new = field * cmr
-
-            ! Should a collision occur?
-            if (coll_random.ge.EXP(-(t-last_coll)/expected_free)) then
-                  call RANDOM_NUMBER(coll_random)
-                  last_coll = t
-                  collisions = collisions + 1
-                  
-                  vm = 1.0e+3 !* maxwell_distribution(cdf, vs)
-                  call RANDOM_NUMBER(random)
-                  theta = 2 * PI * random
-                  call RANDOM_NUMBER(random)
-                  phi = ACOS(2. * random - 1.)
-                  vc(1) = vm * COS(theta) * COS(PHI)
-                  vc(2) = vm * COS(theta) * SIN(PHI)
-                  vc(3) = vm * SIN(theta)
-
-                  call RANDOM_NUMBER(random)
-                  theta = 2 * PI * random
-                  call RANDOM_NUMBER(random)
-                  phi = ACOS(2. * random - 1.)
-                  normal(1) = 1. * COS(theta) * COS(PHI)
-                  normal(2) = 1. * COS(theta) * SIN(PHI)
-                  normal(3) = 1. * SIN(theta)
-
-                  vel = vel
-     &                  - DOT_PRODUCT(vel - vc, normal) * normal
-            end if
 
             vel = vel + tstep * (accel + accel_new) / 2.
             accel = accel_new
