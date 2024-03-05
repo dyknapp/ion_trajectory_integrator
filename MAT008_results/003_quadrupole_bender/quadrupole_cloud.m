@@ -11,12 +11,12 @@ initial_energy = 1.0;                % eV
 initial_angle =  45. * (pi/180.);    % radians
 collimation_f = 50.;                 % mm      : Distance at which the cloud should be focused
 initial_location = [15 * d, 15 * d]; % mm      : Center of cloud
-initial_spread = 5.0;                % mm      : Standard deviation of Gaussian position initialization
+initial_spread = 0.5;                % mm      : Standard deviation of Gaussian position initialization
 cloud_temperature =  10.0;           % Kelvin  : Initial temperature of cloud
 
 % Simulation parameters
 end_time   =  100.0;                 % us : Time cutoff for simulation
-maxdist =  0.0001;                   % mm : Propagation distance for adaptive timestep
+maxdist =  0.001;                   % mm : Propagation distance for adaptive timestep
 sample_dist = 0.25;                   % mm : Interval for recording trajectory data samples
 
 %% Initialize
@@ -145,7 +145,10 @@ positions(2, :) = positions(2, :) + initial_location(2);
 % trajectories = reshape(trajectories, [particles 1024 3]);
 
 %%
-system(sprintf("ifort /fpp /c /dll /O3 " + ...
+system(sprintf("gfortran -fc-prototypes -fsyntax-only -cpp " + ...
+                                "%s " + ...
+                                "> C__001_wrappers/%s.h", 'FOR001_modules\ion_optics.f', 'ion_optics'));
+system(sprintf("ifort /fpp /c /dll /O3 /check:bounds " + ...
 "%s -o ./FOR001_modules/%s.o", 'FOR001_modules\ion_optics.f', 'ion_optics'));
 mex -g COMPFLAGS='$COMPFLAGS /O3 /Qopenmp ' C__001_wrappers\ray_optics_spaced_ensemble_parallel.cpp FOR001_modules\ion_optics.o
 
@@ -310,14 +313,14 @@ ylim([0 dimensions(2)] * d)
 %     end
 % end
 
-%% Emittance variation
-figure
-yyaxis left
-plot(frame_times, emittances);
-yyaxis right
-plot(frame_times, alive_particles);
+% %% Emittance variation
+% figure
+% yyaxis left
+% plot(frame_times, emittances);
+% yyaxis right
+% plot(frame_times, alive_particles);
 
-xlim([min(frame_times) max(frame_times)])
+% xlim([min(frame_times) max(frame_times)])
 
 %% FUNCTIONS
 

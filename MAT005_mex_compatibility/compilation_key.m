@@ -16,4 +16,5 @@ function key = compilation_key()
     key("inf_trap_bg_gas")               = {"FOR001_modules/multipole_integration.f", "C__001_wrappers/inf_trap_bg_gas.c"};
     key("ray_optics_spaced")             = {"FOR001_modules/ion_optics.f", "C__001_wrappers/ray_optics_spaced.c"};
     key("ray_optics_spaced_ensemble")    = {"FOR001_modules/ion_optics.f", "C__001_wrappers/ray_optics_spaced_ensemble.c"};
+    key("cylindrical_3D_spaced")         = {"FOR001_modules/slim_integrator.f", "C__001_wrappers/cylindrical_3D_spaced.cpp"};
 end

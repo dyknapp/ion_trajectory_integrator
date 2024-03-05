@@ -1,6 +1,7 @@
+#include <math.h>
 #include "mex.hpp"
 #include "mexAdapter.hpp"
-#include "ray_optics_spaced_ensemble.h"
+#include "ion_optics.h"
 
 using namespace matlab::data;
 using matlab::mex::ArgumentList;
@@ -44,7 +45,11 @@ public:
     int    *datass       = (   int*)malloc(sizeof(int) * particles);
 
     // Temp variables for loop
-    
+    #pragma omp parallel for \
+        shared(positions, velocities, sample_dist, is_electrode, potential_maps, \
+               voltages, dimensions, n_electrodes, m, q, din, maxdist, maxt, \
+               trajectories, deaths, itss, datass, particles) \
+        default(none)
     for(int idx = 0; idx < particles; idx++){
         
         double* position_temp   = new double[2];
@@ -52,14 +57,13 @@ public:
         double* trajectory_temp = new double[3 * 1024];
         int death, its, datas;
 
-        // Initialize for current iteration
-        position_temp[0] = positions[2*idx + 0];
-        position_temp[1] = positions[2*idx + 1];
+        // // Initialize for current iteration
+        for(int coord = 0; coord < 2; coord++){
+            position_temp[coord] =  positions[idx*2 + coord];
+            velocity_temp[coord] = velocities[idx*2 + coord];
+        }
 
-        velocity_temp[0] = velocities[2*idx + 0];
-        velocity_temp[1] = velocities[2*idx + 1];
-
-        ray_optics_spaced(
+        ray_optics_spaced( \
             position_temp, velocity_temp, \
             &sample_dist, is_electrode, \
             potential_maps, voltages, dimensions, \
@@ -67,7 +71,6 @@ public:
             trajectory_temp, &death, &its, &datas);
 
         // Write results onto main arrays
-        #pragma omp parallel for
         for(int jdx = 0; jdx < 1024; jdx++){
             for(int coord = 0; coord < 3; coord++){
                 trajectories[idx + jdx*1000 + coord*1000*1024] \

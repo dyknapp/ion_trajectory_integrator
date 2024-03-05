@@ -401,8 +401,6 @@ C           Check if particle is alive
 
       end subroutine
 
-
-
       subroutine ray_optics_spaced(position, velocity, sample_dist,
      &            is_electrode, potential_maps, voltages, dimensions,
      &            n_electrodes, m, q, din, maxdist, maxt,
@@ -426,16 +424,24 @@ C     Dummy variables:
 
 C     Local variables
       real(c_double), 
-     &      dimension(dimensions(1), dimensions(2)) :: potential_map
+     &      allocatable :: potential_map(:, :)
       real(c_double) :: t, mdist, mt, cmr,
      &      a, v, tv, ta, tstep, ex, ey, ex_new, ey_new, d
-      real(c_double), dimension(2) :: pos, vel, last_rec, accel, accel_n
+      real(c_double), allocatable :: 
+     &      pos(:), vel(:), last_rec(:), accel(:), accel_n(:)
       integer(c_int) :: idx, iter, sample_interval, data_points
       logical :: dead
 
       sample_interval = MAX_TRAJECTORY_POINTS / 1024
 
+      allocate(pos(2))
+      allocate(vel(2))
+      allocate(last_rec(2))
+      allocate(accel(2))
+      allocate(accel_n(2))
+
 C     Calculate the potential based on the given electrode voltages
+      allocate(potential_map(dimensions(1), dimensions(2)))
       potential_map = 0.0;
 
       do idx = 1, n_electrodes
@@ -459,6 +465,8 @@ C           this function.
       mdist = maxdist * 1.0e-3
       mt = maxt * 1.0e-6                        ! us -> s
 
+      trajectory = 0.0
+
 C     Charge-to-mass ratio
       cmr = ((1.602176634e-19) * q) / ((1.660539067e-27) * m);
 
@@ -467,10 +475,12 @@ C     Main loop of integration
       iter = 0
 C     Check if particle is alive
       death = how_dead(dimensions, is_electrode, pos(1), pos(2), d)
+      its = NINT(1000.0 * vel(2))!iter
       if (death.gt.0) then
             t = mt;
       else
-            call field_at2D(pos(1),pos(2), d, potential_map, dimensions,
+            call field_at2D(pos(1), pos(2), d, 
+     &            potential_map, dimensions,
      &            ex, ey)
       end if
       accel = (/ex, ey/) * cmr
@@ -509,18 +519,25 @@ C           Check if particle is alive
             death = how_dead(dimensions,is_electrode,pos(1),pos(2),d)
             if (death.gt.0) then
                   t = mt;
+            else
+C                 Calculate new fields
+                  call field_at2D(pos(1), pos(2), d, 
+     &                  potential_map, dimensions,
+     &                  ex, ey)
+                  accel_n = (/ex, ey/) * cmr
+                  vel = vel + tstep*(accel + accel_n)/2.
+      
+                  accel = accel_n
             end if
-
-C           Calculate new fields
-            call field_at2D(pos(1),pos(2), d, potential_map, dimensions,
-     &            ex, ey)
-            accel_n = (/ex, ey/) * cmr
-            vel = vel + tstep*(accel + accel_n)/2.
-
-            accel = accel_n
       end do
-      its = iter
       datas = data_points
+      deallocate(potential_map)
+      deallocate(pos)
+      deallocate(vel)
+      deallocate(last_rec)
+      deallocate(accel)
+      deallocate(accel_n)
+
       end subroutine
 
 
