@@ -1,0 +1,11 @@
+**/*.pdf
+**/*.lammps
+**/*.asv
+**/*.cfg
+**/*.txt
+**/*.fig
+Simulations/**
+**/*.cite
+**/*.mat
+**/*.png
+bin/**

@@ -399,5 +399,130 @@ C     Initialize the CDF for the Maxwell-Boltzmann
       rpts = sample_idx - 1
       end subroutine
 
+      subroutine inf_trap_cloud(position, velocity, m, q, coll_rate,
+     &    room_temp, omega, depth, R, max_t, max_dist, averaging_window,
+     &    pts, four_trajectory, its, rpts, collisions)
+     & bind(c, name="inf_trap_bg_gas")
+C     Variable declarations
+      integer(c_int), intent(in) :: pts, averaging_window
+      real(c_double), dimension(3), intent(in) :: position, velocity
+      real(c_double), intent(in) :: m, q, coll_rate, room_temp
+      real(c_double), intent(in) :: omega, depth, R
+      real(c_double), intent(in) :: max_t, max_dist
+      real(c_double), dimension(pts, 4), intent(out) :: four_trajectory
+      integer(c_int), intent(out) :: its, rpts, collisions
+
+C     Local variables
+      real(c_double), dimension(3) :: pos, vel, accel, field, accel_new,
+     &                                vc, normal
+      real(c_double) :: t, ta, tv, a, v, sample_interval, next_sample,
+     &   mt, md, rt, last_coll, expected_free, random, coll_random
+      real(c_double) :: vm, theta, phi
+      integer(c_int) :: window_end, sample_idx, idx
+      real(c_double), dimension(1024) :: cdf, vs
+
+      four_trajectory = 0.
+
+      cmr = ((ECHARGE) * q) / ((PROTONMASS) * m);
+      md  = max_dist * 1.0e-3 ! mm -> m
+      mt  = max_t * 1.0e-6    ! us -> s
+      rt  = R * 1.0e-3
+      pos = position * 1.0e-3
+      vel = velocity * 1.0e+3
+      mt = max_t * 1.0e-6
+      md = max_dist * 1.0e-3
+      expected_free = 1. / (coll_rate * 1.0e+6);
+      sample_interval = mt / DBLE(pts)
+
+C     Initialize the CDF for the Maxwell-Boltzmann
+      vs(1) = 0.
+      cdf(1) = 0.
+      dv = 100.*SQRT(2.*BOLTZMANN*room_temp/(m*PROTONMASS))/1024.0
+      do idx = 2,1024
+            vs(idx) = dv + vs(idx - 1)
+            cdf(idx) = cdf(idx - 1) + dv * EXP(-m * PROTONMASS 
+     &            * vs(idx-1)*vs(idx-1) / (2*BOLTZMANN*room_temp))
+      end do
+      cdf = cdf / cdf(1024)
+
+      its = 0
+      t = 0.
+      last_coll = 0.
+      collisions = 0
+      call RANDOM_NUMBER(coll_random)
+      next_sample = 0.
+      window_end = 0
+      sample_idx = 0
+      call inf_trap_field(pos, t, omega, depth, rt, field)
+      accel = field * cmr
+      do while ((t < mt).and.(its.lt.1e+10))
+            its = its + 1
+
+            if (its.le.window_end) then
+                  four_trajectory(sample_idx, 1:3) = 
+     &                      four_trajectory(sample_idx, 1:3) + pos
+                  four_trajectory(sample_idx, 4) =
+     &                      four_trajectory(sample_idx, 4) + t
+                  if (its.eq.window_end) then
+                        four_trajectory(sample_idx, 1:4) = 
+     &                      four_trajectory(sample_idx, 1:4)
+     &                    / DBLE(averaging_window)
+                  end if
+            else
+                  if (next_sample.le.t) then
+                        next_sample = t + sample_interval
+                        window_end = its + averaging_window
+                        sample_idx = sample_idx + 1
+                  end if
+            end if
+
+            a = NORM2(accel)
+            v = NORM2(vel)
+            a = a + 1.0e-15
+            v = v + 1.0e-15
+            tv = md / v
+            ta = SQRT(2.0 * md / a)
+            tstep = tv * ta / (tv + ta)
+            tstep = MIN(tstep, mt * 1.0e-6)
+            t = t + tstep
+
+            pos = pos + (vel * tstep) + tstep*tstep * accel / 2.
+
+            call inf_trap_field(pos, t, omega, depth, rt, field)
+            accel_new = field * cmr
+
+            ! Should a collision occur?
+            if (coll_random.ge.EXP(-(t-last_coll)/expected_free)) then
+                  call RANDOM_NUMBER(coll_random)
+                  last_coll = t
+                  collisions = collisions + 1
+                  
+                  vm = 1.0e+3 !* maxwell_distribution(cdf, vs)
+                  call RANDOM_NUMBER(random)
+                  theta = 2 * PI * random
+                  call RANDOM_NUMBER(random)
+                  phi = ACOS(2. * random - 1.)
+                  vc(1) = vm * COS(theta) * COS(PHI)
+                  vc(2) = vm * COS(theta) * SIN(PHI)
+                  vc(3) = vm * SIN(theta)
+
+                  call RANDOM_NUMBER(random)
+                  theta = 2 * PI * random
+                  call RANDOM_NUMBER(random)
+                  phi = ACOS(2. * random - 1.)
+                  normal(1) = 1. * COS(theta) * COS(PHI)
+                  normal(2) = 1. * COS(theta) * SIN(PHI)
+                  normal(3) = 1. * SIN(theta)
+
+                  vel = vel
+     &                  - DOT_PRODUCT(vel - vc, normal) * normal
+            end if
+
+            vel = vel + tstep * (accel + accel_new) / 2.
+            accel = accel_new
+      end do
+      rpts = sample_idx - 1
+      end subroutine
+
       end module
 

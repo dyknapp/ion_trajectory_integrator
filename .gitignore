@@ -71,6 +71,8 @@ MAT001_functions/jigsaw-matlab/*
 # LARGE FILES:
 3DBenchy.stl
 Stanford_Bunny.stl
+log.lammps
+positions.txt
 quadrupole_Liouville.gif
 ray_optics_spaced_ensemble_parallel.mexw64.pdb
 MAT001_functions/jigsaw-matlab/external/jigsaw/bin/jigsaw.exe
@@ -134,3 +136,4 @@ files/3DBenchy.msh
 files/Stanford_Bunny.msh
 jigsaw-matlab/external/jigsaw/bin/jigsaw.exe
 jigsaw-matlab/external/jigsaw/lib/jigsaw.dll
+lion/positions.txt

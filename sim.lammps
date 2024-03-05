@@ -1,0 +1,48 @@
+# LAMMPS Input file generated using LIon, a Matlab wrapper for ion trap simulations
+# Lion Version: 28707b2c631f4dff0ccd00b379fa58ffd966ed1b
+###################################################################################
+
+# No GPU acceleration will be enabled. (sim.GPUAccel = false)
+
+units si
+atom_style charge
+
+#Creating simulation box...
+boundary m m m
+region simulationDomain block -1.000000e-03 1.000000e-03 -1.000000e-03 1.000000e-03 -1.000000e-03 1.000000e-03 units box
+create_box 1 simulationDomain
+
+# Configure Neighbor list: 
+neighbor 1.000 nsq
+neigh_modify once yes
+
+# Configure pairwise interactions for long range Coulombics only
+pair_style coul/cut 1.000000e+01
+pair_coeff * * 
+
+# Placing atoms
+create_atoms 1 single -1.500000e-05 -0.000000e+00 0.000000e+00 units box
+create_atoms 1 single 1.500000e-05 0.000000e+00 0.000000e+00 units box
+# Atom definitions
+mass 1 1.660000e-27
+set type 1 charge 1.600000e-19
+
+timestep 1.000000e-13
+
+# Configuring additional output to flush buffer during simulation 
+thermo 10000
+thermo_style custom step cpu
+thermo_modify flush yes
+fix extra all print 10 "SIMULATION RUNNING----------------------"
+
+# Group definitions:
+# (1 group(s))
+group grp_poxht type 1 
+
+# Time integration: 
+group nonRigidBody union all
+fix timeIntegrator nonRigidBody nve
+#Dump output
+dump cfxdvn all custom 1 positions.txt id x y z 
+#Run simulation
+run 1000000

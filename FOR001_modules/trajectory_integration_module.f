@@ -565,14 +565,12 @@ C C     Run the trajectory simulations
       distance_sqrd =
      &        (xdiff * xdiff)
      &      + (ydiff * ydiff)
-     &      + (zdiff * zdiff)
+     &      + (zdiff * zdiff) ! m^2
       distance = SQRT(distance_sqrd)
       coulomb_force =
-     &        1 / ( VACEPSILON
-     &      * 4.0 * PI )
-     &      * q1 * q2
-     &      * (ECHARGE**2.0)
-     &      / distance_sqrd
+     &        (q1 * q2 * (ECHARGE**2.0) 
+     &        / ( VACEPSILON * 4.0 * PI ))
+     &            / distance_sqrd
 
       ax1 = ax1
      &      + (coulomb_force / (PROTONMASS * m1))
@@ -658,29 +656,29 @@ C     Local variables
 C     Unit conversions.  For simplicity, we work with SI units within 
 C           this function.
       ! positions, velocities, cmrs
-      xs   = xxs  * 1.0e-3 ! mm -> m
-      ys   = yys  * 1.0e-3 ! mm -> m
-      zs   = zzs  * 1.0e-3 ! mm -> m
-      vxs  = vxxs * 1.0e+3 ! mm/us -> m/s
-      vys  = vyys * 1.0e+3 ! mm/us -> m/s
-      vzs  = vzzs * 1.0e+3 ! mm/us -> m/s
-      cmrs =   (ECHARGE / PROTONMASS) * (qs / ms)
+      xs   = xxs  * 1.0e-3         ! mm -> m
+      ys   = yys  * 1.0e-3         ! mm -> m
+      zs   = zzs  * 1.0e-3         ! mm -> m
+      vxs  = vxxs * 1.0e+3         ! mm/us -> m/s
+      vys  = vyys * 1.0e+3         ! mm/us -> m/s
+      vzs  = vzzs * 1.0e+3         ! mm/us -> m/s
+      cmrs =   (ECHARGE / PROTONMASS) * (qs / ms) ! C/kg
       
       ! times
-      step_times = step_times_in * 1.0e-6
+      step_times = step_times_in * 1.0e-6 ! us -> s
       
       ! other scalars
-      t     = 0.0
+      t     = 0.0                  ! s
       d     = din * 1e-3           ! mm -> m
       mdist = maxdist * 1.0e-3     ! mm -> m
       mt    = maxt * 1.0e-6        ! us -> s
 
-      axs = 0.0
-      ays = 0.0
-      azs = 0.0
-      exs = 0.0
-      eys = 0.0
-      ezs = 0.0
+      axs = 0.0                    ! m/s^2
+      ays = 0.0                    ! m/s^2
+      azs = 0.0                    ! m/s^2
+      exs = 0.0                    ! N/C
+      eys = 0.0                    ! N/C
+      ezs = 0.0                    ! N/C
 
 C     MAIN INTEGRATION LOOP:
 C     Velocity-Verlet
@@ -708,21 +706,21 @@ C           PHASE 1: Calculate/Inherit Accelerations
                   azs(idx) = ez * cmrs(idx)
                   ! Coulomb interaction, Newton's third law
                   do jdx = 1,(idx - 1)
-                        call coulomb(xs(idx) - xs(jdx), 
-     &                               ys(idx) - ys(jdx), 
-     &                               zs(idx) - zs(jdx), 
-     &                               qs(idx), qs(jdx), 
-     &                               ms(idx), ms(jdx), 
-     &                               axs(idx), ays(idx), azs(idx), 
+                        call coulomb(xs(idx) - xs(jdx),            !m
+     &                               ys(idx) - ys(jdx),            !m
+     &                               zs(idx) - zs(jdx),            !m
+     &                               qs(idx),  qs(jdx),            !e
+     &                               ms(idx),  ms(jdx),            !m_p
+     &                               axs(idx), ays(idx), azs(idx), !m/s2
      &                               axs(jdx), ays(jdx), azs(jdx))
                   end do
             end if
       end do
 
       iter = 0
+      tstep = 0
       do while (iter .lt. MAX_TRAJECTORY_POINTS)
             iter = iter + 1
-            tPath(iter) = t
 
 C           PHASE 1: Calculate/Inherit Accelerations
 C           PHASE 2: Adaptive timestep
@@ -732,7 +730,12 @@ C           PHASE 2: Adaptive timestep
             tvs = mdist / vs
             tas = SQRT(2.0 * mdist / as)
             tstep = MINVAL(tvs * tas / (tvs + tas))
-            tstep = MIN(tstep, mt * 1.0e-3)
+            tstep = MIN(tstep, mt * 1.0e-6)
+C             tstep = mt * 1.0e-6
+            ! I record time and position before incrementing.
+            ! However, I want position to take into account the state
+            ! of the ion (dead/alive) so I leave that to a bit later
+            tPath(iter) = t
             t = t + tstep
 
             do idx = 1,particles
@@ -751,17 +754,17 @@ C           PHASE 5: Half-timestep propagation of velocities,
                       vzs(idx) =   vzs(idx) 
      &                     + prev_tstep * (azs(idx) + azs_old(idx)) / 2.
 C           PHASE 3: Half-timestep propagation of position
-                      xs(idx) =  xs(idx) + (vxs(idx) * tstep)
-     &                          + ((axs(idx)) * (tstep**2.) / 2.0)
-                      ys(idx) =  ys(idx) + (vys(idx) * tstep)
-     &                          + ((ays(idx)) * (tstep**2.) / 2.0)
-                      zs(idx) =  zs(idx) + (vzs(idx) * tstep)
-     &                          + ((azs(idx)) * (tstep**2.) / 2.0)
+                      xs(idx) = xs(idx) + (vxs(idx) * tstep)
+     &                          + ((axs(idx) * (tstep * tstep) / 2.0))
+                      ys(idx) = ys(idx) + (vys(idx) * tstep)
+     &                          + ((ays(idx) * (tstep * tstep) / 2.0))
+                      zs(idx) = zs(idx) + (vzs(idx) * tstep)
+     &                          + ((azs(idx) * (tstep * tstep) / 2.0))
                   end if
             end do
 
             ! Check if the simulation should be finished
-            if (t .ge. mt) then
+            if (t.ge.mt) then
                   its = dble(iter) - 0.5
                   goto 2
             end if
@@ -772,18 +775,21 @@ C           PHASE 3: Half-timestep propagation of position
 
             ! Since some are left, we need to calculate the fields for:
 C           PHASE 4: Calculate new acceleration
-            alive = 0
+            alive = 1!0
             do idx = 1,particles
                   if (.not. dead(idx)) then
                         alive = alive + 1
                         axs_old(idx) = axs(idx)
                         ays_old(idx) = ays(idx)
                         azs_old(idx) = azs(idx)
-                        call field_at(t, voltages, step_times, 
-     &                          n_electrodes, time_steps,
-     &                          xs(idx), ys(idx), zs(idx), d,
-     &                          potential_maps, dimensions,
-     &                          ex, ey, ez)
+C                         call field_at(t, voltages, step_times, 
+C      &                          n_electrodes, time_steps,
+C      &                          xs(idx), ys(idx), zs(idx), d,
+C      &                          potential_maps, dimensions,
+C      &                          ex, ey, ez)
+                        ex = 0.0;
+                        ey = 0.0;
+                        ez = 0.0;
                         axs(idx) = ex * cmrs(idx)
                         ays(idx) = ey * cmrs(idx)
                         azs(idx) = ez * cmrs(idx)
@@ -808,6 +814,9 @@ C           PHASE 4: Calculate new acceleration
       end do
       its = dble(iter)
  2    continue
+
+      tPath = tPath * 1.0e+6
+      vectorPath = vectorPath * 1.0e+3
 
       iter = MAX(2, iter)
       call linspace_fortran(real(0.0, c_double), 
