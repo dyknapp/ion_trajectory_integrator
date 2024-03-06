@@ -65,7 +65,7 @@ public:
               );
 
         TypedArray<double> trajectories_out = \
-            factory.createArray({(uint64_t)particles, (uint64_t)STINTLENGTH, (uint64_t)4}, \
+            factory.createArray({(uint64_t)STINTLENGTH, (uint64_t)particles, (uint64_t)4}, \
                 trajectories, \
                 trajectories + (sizeof(trajectories) / sizeof(double)));
         free(trajectories);
