@@ -1,5 +1,7 @@
 #define STINTLENGTH 65536
 
+#include "nbody.h"
+
 #include "mex.hpp"
 #include "mexAdapter.hpp"
 #include <unordered_map>
@@ -25,11 +27,12 @@ class MexFunction : public matlab::mex::Function {
 public:
     // The constructor
     MexFunction() {
-        mexLock();
+        // mexLock();
     }
 
     // The destructor
     ~MexFunction() {
+        // mexUnlock();
     }
 
     void operator()(ArgumentList outputs, ArgumentList inputs) {
@@ -47,9 +50,12 @@ public:
         const double  burst_time                        = inputs[ 3][0];
 
         double *trajectories = (double*)malloc(sizeof(double)*particles*STINTLENGTH*4);
+        double *times        = (double*)malloc(sizeof(double)*STINTLENGTH);
+
+        int its = 0;
 
         nbody( \
-              particles,  \
+              &particles,  \
               positions, \
               velocities,  \
               ms,  \
@@ -60,7 +66,9 @@ public:
               &max_t, \
               &max_dist, \
               &record_step, \
-              four_trajectory,  \
+              &burst_time, \
+              trajectories,  \
+              times, \
               &its \
               );
 
@@ -70,8 +78,15 @@ public:
                 trajectories + (sizeof(trajectories) / sizeof(double)));
         free(trajectories);
 
+        TypedArray<double> times_out = \
+            factory.createArray({(uint64_t)STINTLENGTH}, \
+                times, \
+                times + (sizeof(times) / sizeof(double)));
+        free(times);
+
         outputs[0] = trajectories_out;
-        outputs[1] = factory.createScalar(its);
+        outputs[1] = times_out;
+        outputs[2] = factory.createScalar(its);
     }
 
     void displayOnMATLAB(const std::ostringstream& stream){

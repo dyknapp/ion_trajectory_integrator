@@ -1,4 +1,4 @@
-#define DEBUG 0
+#define DEBUG 1
 #define STINTLENGTH 65536
 
 #define PI 3.14159265358979323846
@@ -29,15 +29,16 @@
      &                   a1, a2)
       real(c_double), dimension(3), intent(in)
      &      :: posdiff
-      real(c_double), dimension(3), intent(in)
+      real(c_double), intent(in)
      &      :: q1, q2, m1, m2
       real(c_double), dimension(3), intent(inout)
      &      :: a1, a2
+      real(c_double) :: coulomb_force, distance
       distance = NORM2(posdiff)
       coulomb_force =
      &        (q1 * q2 * (ECHARGE**2.0) 
      &        / ( VACEPSILON * 4.0 * PI ))
-     &            / (distance * distance)
+     &        / (distance * distance)
       a1 =  (coulomb_force / m1) * posdiff / distance
       a2 = -(coulomb_force / m2) * posdiff / distance
       end subroutine coulomb
@@ -55,7 +56,8 @@
      &    max_dist,
      &    record_step,
      &    burst_time,
-     &    four_trajectory, 
+     &    trajectory, 
+     &    times, 
      &    its)
      & bind(c, name="nbody")
 
@@ -74,46 +76,56 @@ C           record_step      : how often to record a trajectory point
 C     Variable declarations
       integer(c_int), intent(in) :: particles
       real(c_double), dimension(particles, 3), intent(in) 
-     &      :: position, velocities
+     &      :: positions, velocities
       real(c_double), dimension(particles), intent(in) 
      &      :: ms_in, qs_in
       real(c_double), intent(in) :: omega, depth, R
       real(c_double), intent(in) :: max_t, max_dist
       real(c_double), intent(in) :: record_step, burst_time
-      real(c_double), dimension(STINTLENGTH, particles, 4), 
-     &      intent(out) :: four_trajectory
+      real(c_double), dimension(STINTLENGTH, particles, 3), 
+     &      intent(out) :: trajectory
+      real(c_double), dimension(STINTLENGTH), 
+     &      intent(out) :: times
       integer(c_int), intent(out) :: its
 
 C     Local variables
       real(c_double), allocatable 
-     &      :: pos(:, :),   vel(:, :), 
-     &         accel(:, :), field(:, :), accel_new(:, :)
-      real(c_double), allocatable :: ms(:), qs(:), as(:), vs(:), cmrs(:)
+     &      :: pos(:, :),   vel(:, :), vs(:, :), 
+     &         accel(:, :), accel_new(:, :), as(:, :)
+      real(c_double), allocatable 
+     &      :: ms(:), qs(:), cmrs(:), field(:), 
+     &         scalar_as(:), scalar_vs(:)
       logical, allocatable :: dead(:)
-      real(c_double) :: t, last_rec_t
+      real(c_double) :: t, tstep, last_rec_t
+      real(c_double) :: md, mt, rt
       integer(c_int) :: rec_idx, alive
+      integer(c_int) :: idx, jdx
 
       allocate(pos(particles, 3))
       allocate(vel(particles, 3))
       allocate(accel(particles, 3))
       allocate(accel_new(particles, 3))
 
+      allocate(field(3))
+
+      allocate(as(particles, 3))
+      allocate(vs(particles, 3))
+
       allocate(ms(particles))
       allocate(qs(particles))
-      allocate(as(particles))
-      allocate(vs(particles))
       allocate(cmrs(particles))
+      allocate(scalar_as(particles))
+      allocate(scalar_vs(particles))
 
       allocate(dead(particles))
 
-      four_trajectory = 0.
+      trajectory = 0.
 
-      cmr = ((ECHARGE) * q) / ((PROTONMASS) * m);     ! C/kg
       md  = max_dist * 1.0e-3                         ! mm -> m
       mt  = max_t * 1.0e-6                            ! us -> s
       rt  = R * 1.0e-3                                ! mm -> m
-      pos = position * 1.0e-3                         ! mm -> m
-      vel = velocity * 1.0e+3                         ! mm/us -> m/s
+      pos = positions * 1.0e-3                        ! mm -> m
+      vel = velocities * 1.0e+3                       ! mm/us -> m/s
       mt = max_t * 1.0e-6                             ! us -> s
       md = max_dist * 1.0e-3                          ! mm -> m
       ms = ms_in * PROTONMASS                         ! au -> kg
@@ -125,20 +137,23 @@ C     Local variables
 
       t = 0.
       last_rec_t = 0.
-      recording_state = 0
       dead = .false.
       alive = particles
 
-      call inf_trap_field(pos, t, omega, depth, rt, field)
-      accel = field * cmr
+      do idx = 1,particles
+            if (.not. dead(idx)) then
+                  call inf_trap_field(pos, t, omega, depth, rt, field)
+                  accel(idx, :) = field * cmrs(idx)
+            end if
+      end do
       do while (((t < mt)
      &      .and.(rec_idx.le.STINTLENGTH))
      &      .and.(alive.gt.0))
             its = its + 1
 
             if (last_rec_t.le.t) then
-                  four_trajectory(rec_idx, 1:3) = pos
-                  four_trajectory(rec_idx, 4) = t
+                  trajectory(rec_idx, :, 1:3) = pos
+                  times(rec_idx) = t
                   rec_idx = rec_idx + 1
 
                   if ((last_rec_t + burst_time).gt.t) then
@@ -146,13 +161,16 @@ C     Local variables
                   end if
             end if
 
-            as = NORM2(accel, 2)
-            vs = NORM2(  vel, 2)
-            as = as + 1.0e-15
-            vs = vs + 1.0e-15
-            vs = md / vs              ! tvs
-            as = SQRT(2.0 * md / as)  ! tas
-            tstep = MINVAL(vs * as / (vs + as))
+            do idx = 1,particles
+                  scalar_as(idx) = NORM2(accel(idx, :))
+                  scalar_vs(idx) = NORM2(  vel(idx, :))
+            end do
+            scalar_as = scalar_as + 1.0e-15
+            scalar_vs = scalar_vs + 1.0e-15
+            scalar_vs = md / scalar_vs              ! tvs
+            scalar_as = SQRT(2.0 * md / scalar_as)  ! tas
+            tstep = MINVAL(scalar_vs * scalar_as 
+     &            / (scalar_vs + scalar_as))
             tstep = MIN(tstep, mt * 1.0e-6)
             t = t + tstep
 
@@ -178,7 +196,7 @@ C           PHASE 4: Calculate new acceleration
 
                         call inf_trap_field(pos, t, omega, depth, rt, 
      &                                          field)
-                        as(idx, :) = field * cmrs(idx)
+                        accel_new(idx, :) = field * cmrs(idx)
                         ! Coulomb interaction, Newton's third law
                         do jdx = 1,(idx - 1)
                               call coulomb(pos(idx, :) - pos(jdx, :), 
@@ -186,9 +204,6 @@ C           PHASE 4: Calculate new acceleration
      &                                     ms(idx), ms(jdx), 
      &                                     as(idx, :), as(jdx, :))
                         end do
-                        call inf_trap_field(pos, t, omega, depth, rt, 
-     &                                          field)
-                        accel_new(idx, :) = field * cmr
                   end if
             end do            
       end do

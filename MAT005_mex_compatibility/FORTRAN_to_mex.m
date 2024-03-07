@@ -19,7 +19,7 @@ function FORTRAN_to_mex(fortran_file_path, ...
         c_wrapper_path    (1, 1) string
         mex_name          (1, 1) string  = "default"
         setvars_path      (1, 1) string  = "default"
-        debug             (1, 1) logical = false
+        debug             (1, 1) logical = true
         load_variables    (1, 1) logical = true
     end
     % Make sure that the mex files are not in use
