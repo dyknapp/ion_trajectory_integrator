@@ -4,13 +4,13 @@ constants = physical_constants();
 
 % Simulation time
 start_time =  0.0;
-end_time   =  0.1;
+end_time   =  10.0;
 
 %Create an empty experiment.
 sim = LAMMPSSimulation();
 
 sim.SetSimulationDomain(1e-3,1e-3,1e-3);
-sim.TimeStep = 1.0e-13;
+sim.TimeStep = 1.0e-10;
 
 % Add a new atom type:
 charge = 1;
@@ -86,8 +86,10 @@ interps         = int32(1.0e+6);
 % plot(ts, (x_trajs(2,:) - offset(1)));
 
 %%
+% quick_FORTRAN_to_mex("nbody")
+
 positions = [(1.0e+3) * [-d/2. d/2.] + offset(1); 0 0; 0 0]';
-velocities = [0 0; 0 0; 0 0]';
+velocities = [0. 0.; 0 0; 0 0]';
 ms = [1 1];
 qs = [1 1];
 
@@ -95,11 +97,15 @@ omega = 1.0;
 depth = 0.0;
 R = 1.0;
 
-record_step = 10.0e-9;
-burst_time = 1.0e-9;
+maxdist = 1.0e-1;
+record_step =  0.01;
+burst_time =   0.0001;
+
+drawnow('update')
 
 mh = mexhost;
-[trajectories, times, its] = ...
+tic;
+[trajectories, times, its, recorded] = ...
     feval(mh, 'nbody', ...
         particles, ...
         positions, ...
@@ -111,22 +117,27 @@ mh = mexhost;
         R,  ...
         end_time, ...
         maxdist, ...
-        record_step ...
+        record_step, ...
+        burst_time ...
     );
+elapsed = toc;
+fprintf("Simulation finished ( %5.1f s).  Iterations: %9.1f ( %.3g its/s). Mean timestep: %.3g us, Recorded points: %d\n", elapsed, its, its / elapsed,  (times(recorded) / double(its)), recorded)
+
+% plot(times(1:recorded), squeeze(trajectories(1:recorded, 2, 1))- offset(1), '.-')
 
 %% Superimpose plots
 figure
 hold on
 plot(sim.TimeStep * double(timestep), xs(2, :), '-k', LineWidth=5);
-plot(ts * 1.0e-6, (x_trajs(2,:) - offset(1)) * 1.0e-3, '-w');
+plot(1.0e-6 * times(1:recorded), 1.0e-3 * (squeeze(trajectories(1:recorded, 2, 1))- offset(1)), '-')
 hold off
-xlim(1.0e-6 * [min(ts) max(ts)])
+xlim(1.0e-6 * [min(times(1:recorded)) max(times(1:recorded))])
 
 %%
 syms y(t)
 [V] = odeToVectorField((1 * 1.67262192369e-27) * diff(y,2) == ((1.602176634e-19)^2.) / (4. * pi * (8.8541878128e-12) * (2. * y)^2.));
 M = matlabFunction(V,'vars', {'t','Y'});
-options = odeset('RelTol', 1e-13, 'Stats', 'on', 'MaxStep', 1e-12);
+options = odeset('RelTol', 1e-13, 'Stats', 'on', 'MaxStep', 1e-8);
 [t, y] = ode89(M, [0 end_time*1.0e-6], [d/2.; 0.], options);
 % hold on
 % plot(t, y(:, 1), '-');
@@ -135,7 +146,7 @@ options = odeset('RelTol', 1e-13, 'Stats', 'on', 'MaxStep', 1e-12);
 %% Error comparison
 
 pylion_ys = interp1(sim.TimeStep * double(timestep), xs(2, :), t, "linear");
-dknapp_ys = interp1(ts * 1.0e-6, (x_trajs(2,:) - offset(1)) * 1.0e-3, t, "linear");
+dknapp_ys = interp1(1.0e-6 * times(1:recorded), 1.0e-3 * (squeeze(trajectories(1:recorded, 2, 1))- offset(1)), t, "linear");
 
 semilogy(t, 100. * abs(pylion_ys - y(:, 1)) ./ abs(y(:, 1)), '-'); hold on
 semilogy(t, 100. * abs(dknapp_ys - y(:, 1)) ./ abs(y(:, 1)), '-'); hold off

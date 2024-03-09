@@ -36,8 +36,8 @@
       real(c_double) :: coulomb_force, distance
       distance = NORM2(posdiff)
       coulomb_force =
-     &        (q1 * q2 * (ECHARGE**2.0) 
-     &        / ( VACEPSILON * 4.0 * PI ))
+     &        (q1 * q2 
+     &        / (VACEPSILON * 4.0 * PI))
      &        / (distance * distance)
       a1 =  (coulomb_force / m1) * posdiff / distance
       a2 = -(coulomb_force / m2) * posdiff / distance
@@ -58,7 +58,9 @@
      &    burst_time,
      &    trajectory, 
      &    times, 
-     &    its)
+     &    its,
+     &    recorded
+     &    )
      & bind(c, name="nbody")
 
 C     Argument specifications:
@@ -86,7 +88,7 @@ C     Variable declarations
      &      intent(out) :: trajectory
       real(c_double), dimension(STINTLENGTH), 
      &      intent(out) :: times
-      integer(c_int), intent(out) :: its
+      integer(c_int), intent(out) :: its, recorded
 
 C     Local variables
       real(c_double), allocatable 
@@ -119,6 +121,11 @@ C     Local variables
 
       allocate(dead(particles))
 
+      if (DEBUG .eq. 1) then
+            open (10, file='output_file.txt',
+     &            status='unknown')
+      endif
+
       trajectory = 0.
 
       md  = max_dist * 1.0e-3                         ! mm -> m
@@ -140,27 +147,52 @@ C     Local variables
       dead = .false.
       alive = particles
 
+C     Initial accelerations (PHASE 1)
+      accel     = 0.
+      accel_new = 0.
       do idx = 1,particles
             if (.not. dead(idx)) then
-                  call inf_trap_field(pos, t, omega, depth, rt, field)
-                  accel(idx, :) = field * cmrs(idx)
+                  call inf_trap_field(pos(idx, :), t, 
+     &                                omega, depth, rt, 
+     &                                field)
+                  accel_new(idx, :) = field * cmrs(idx)
             end if
       end do
+
+C     MAIN INTEGRATION LOOP:
+C     Velocity-Verlet
+C     PHASE 0: Record current state
+C     PHASE 1: Calculate/Inherit accelerations
+C     PHASE 2: Adaptive timestep
+C     PHASE 3: Half-timestep propagation of position
+C     PHASE 4: Calculate new acceleration
+C     PHASE 5: Half-timestep propagation of velocities mean acceleration
+C     Subroutine for Verlet integration of ion trajectory.
       do while (((t < mt)
      &      .and.(rec_idx.le.STINTLENGTH))
      &      .and.(alive.gt.0))
             its = its + 1
 
+C           PHASE 0: Record current state
+C             if (DEBUG .eq. 1) then
+C                   write(10, *) its, t, last_rec_t, 
+C      &                  last_rec_t + (burst_time * 1.0e-6)
+C             end if
             if (last_rec_t.le.t) then
-                  trajectory(rec_idx, :, 1:3) = pos
+                  trajectory(rec_idx, :, :) = pos
                   times(rec_idx) = t
                   rec_idx = rec_idx + 1
 
-                  if ((last_rec_t + burst_time).gt.t) then
-                        last_rec_t = last_rec_t + burst_time
+                  if ((last_rec_t + (burst_time * 1.0e-6)).le.t) then
+                        last_rec_t =
+     &                      MIN(last_rec_t + (record_step * 1.0e-6), mt)
                   end if
             end if
 
+C           PHASE 1: Calculate/Inherit accelerations
+            accel = accel_new
+
+C           PHASE 2: Adaptive timestep
             do idx = 1,particles
                   scalar_as(idx) = NORM2(accel(idx, :))
                   scalar_vs(idx) = NORM2(  vel(idx, :))
@@ -171,21 +203,24 @@ C     Local variables
             scalar_as = SQRT(2.0 * md / scalar_as)  ! tas
             tstep = MINVAL(scalar_vs * scalar_as 
      &            / (scalar_vs + scalar_as))
-            tstep = MIN(tstep, mt * 1.0e-6)
+            tstep = MIN(tstep, mt / DBLE(STINTLENGTH))
             t = t + tstep
 
-            do idx = 1,particles
-                  if (.not. dead(idx)) then
-C           PHASE 5: Half-timestep propagation of velocities,
-            ! This is from the previous step, to avoid a second loop
-                      vel = vel + tstep * (accel + accel_new) / 2.
-                      accel = accel_new
-                      
 C           PHASE 3: Half-timestep propagation of position
-                      pos = pos + (vel * tstep) 
-     &                        + tstep*tstep * accel / 2.
-                  end if
-            end do
+            pos = pos + (vel * tstep) 
+     &              + tstep*tstep * accel / 2.
+C             if (DEBUG .eq. 1) then
+C                   open (10, file='output_file.txt',
+C      &                  status='unknown')
+C                   write(10, *) tstep
+C                   write(10, *) accel
+C                   write(10, *) vel
+C                   write(10, *) pos
+
+C                   if (its.eq.STINTLENGTH) then
+C                         goto 10
+C                   end if
+C             end if
 
             ! Since some are left, we need to calculate the fields for:
 C           PHASE 4: Calculate new acceleration
@@ -194,19 +229,40 @@ C           PHASE 4: Calculate new acceleration
                   if (.not. dead(idx)) then
                         alive = alive + 1
 
-                        call inf_trap_field(pos, t, omega, depth, rt, 
-     &                                          field)
+                        call inf_trap_field(pos(idx, :), t, 
+     &                                      omega, depth, rt, 
+     &                                      field)
                         accel_new(idx, :) = field * cmrs(idx)
                         ! Coulomb interaction, Newton's third law
                         do jdx = 1,(idx - 1)
                               call coulomb(pos(idx, :) - pos(jdx, :), 
      &                                     qs(idx), qs(jdx), 
      &                                     ms(idx), ms(jdx), 
-     &                                     as(idx, :), as(jdx, :))
+     &                                     accel_new(idx, :), 
+     &                                     accel_new(jdx, :))
+C                               if (DEBUG .eq. 1) then
+C                                     if (its.eq.1) then
+C                                           write(10, *) idx, jdx
+C                                           write(10, *) 
+C      &                                  NORM2(pos(idx, :) - pos(jdx, :))
+C                                           write(10, *) accel_new(idx, :)
+C                                     end if
+C                               end if
                         end do
                   end if
-            end do            
+            end do
+
+C           PHASE 5: Half-timestep propagation of velocities
+            vel = vel + tstep * (accel + accel_new) / 2.
       end do
+ 10   continue
+      times = times * 1.0e+6
+      trajectory = trajectory * 1.0e+3
+      recorded = rec_idx - 1
+
+      if (DEBUG .eq. 1) then
+            close (10)
+      endif
       end subroutine
 
       end module

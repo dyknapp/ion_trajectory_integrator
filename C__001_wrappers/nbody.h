@@ -11,7 +11,7 @@ extern "C" {
 #define __GFORTRAN_LONG_DOUBLE_COMPLEX long double _Complex
 #endif
 
-void nbody (const int *particles, const double *positions, const double *velocities, const double *ms_in, const double *qs_in, const double *omega, const double *depth, const double *r, const double *max_t, const double *max_dist, const double *record_step, const double *burst_time, double *trajectory, double *times, int *its);
+void nbody (const int *particles, const double *positions, const double *velocities, const double *ms_in, const double *qs_in, const double *omega, const double *depth, const double *r, const double *max_t, const double *max_dist, const double *record_step, const double *burst_time, double *trajectory, double *times, int *its, int *recorded);
 
 #ifdef __cplusplus
 }
