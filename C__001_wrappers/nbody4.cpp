@@ -73,7 +73,7 @@ public:
         // stream << "\n";
         // displayOnMATLAB(stream);
 
-        nbody( \
+        nbody4( \
               &particles,  \
               positions, \
               velocities,  \
