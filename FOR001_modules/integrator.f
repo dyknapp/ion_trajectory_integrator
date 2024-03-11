@@ -1,4 +1,4 @@
-#define DEBUG 1
+#define DEBUG 0
 #define STINTLENGTH 65536
 
 #define PI 3.14159265358979323846
@@ -9,7 +9,7 @@
 #define ROOMTEMP 300.0
 
 
-      module multipole_integration
+      module polyphemus_integrator
       use iso_c_binding, only: c_int, c_double, c_double_complex
       implicit none
       contains
@@ -94,32 +94,22 @@ C     Local variables
       real(c_double), allocatable 
      &      :: pos(:, :),   vel(:, :), vs(:, :), 
      &         accel(:, :), accel_new(:, :), as(:, :)
-      real(c_double), allocatable 
-     &      :: ms(:), qs(:), cmrs(:), field(:), 
-     &         scalar_as(:), scalar_vs(:)
-      logical, allocatable :: dead(:)
-      real(c_double) :: t, tstep, last_rec_t
+      real(c_double), dimension(3) :: field
+      real(c_double), dimension(particles)
+     &      :: ms, qs, cmrs
+      real(c_double) :: scalar_a, scalar_v
+      logical, dimension(particles) :: dead
+      real(c_double) :: t, tstep, last_rec_t, tstep_candidate
       real(c_double) :: md, mt, rt
       integer(c_int) :: rec_idx, alive
-      integer(c_int) :: idx, jdx
+      integer(c_int) :: idx, jdx, cdx
 
       allocate(pos(particles, 3))
       allocate(vel(particles, 3))
       allocate(accel(particles, 3))
       allocate(accel_new(particles, 3))
-
-      allocate(field(3))
-
       allocate(as(particles, 3))
       allocate(vs(particles, 3))
-
-      allocate(ms(particles))
-      allocate(qs(particles))
-      allocate(cmrs(particles))
-      allocate(scalar_as(particles))
-      allocate(scalar_vs(particles))
-
-      allocate(dead(particles))
 
       if (DEBUG .eq. 1) then
             open (10, file='output_file.txt',
@@ -127,6 +117,7 @@ C     Local variables
       endif
 
       trajectory = 0.
+      times = 0.
 
       md  = max_dist * 1.0e-3                         ! mm -> m
       mt  = max_t * 1.0e-6                            ! us -> s
@@ -170,14 +161,11 @@ C     PHASE 5: Half-timestep propagation of velocities mean acceleration
 C     Subroutine for Verlet integration of ion trajectory.
       do while (((t < mt)
      &      .and.(rec_idx.le.STINTLENGTH))
-     &      .and.(alive.gt.0))
+     &      .and.(alive.gt.0)
+     &      .and.(its.lt.1e9))
             its = its + 1
 
 C           PHASE 0: Record current state
-C             if (DEBUG .eq. 1) then
-C                   write(10, *) its, t, last_rec_t, 
-C      &                  last_rec_t + (burst_time * 1.0e-6)
-C             end if
             if (last_rec_t.le.t) then
                   trajectory(rec_idx, :, :) = pos
                   times(rec_idx) = t
@@ -193,39 +181,30 @@ C           PHASE 1: Calculate/Inherit accelerations
             accel = accel_new
 
 C           PHASE 2: Adaptive timestep
+            tstep = mt / DBLE(STINTLENGTH)
             do idx = 1,particles
-                  scalar_as(idx) = NORM2(accel(idx, :))
-                  scalar_vs(idx) = NORM2(  vel(idx, :))
+                  scalar_a = NORM2(accel(idx, :))
+                  scalar_v = NORM2(  vel(idx, :))
+                  scalar_a = scalar_a + 1.0e-15
+                  scalar_v = scalar_v + 1.0e-15
+                  scalar_v = md / scalar_v             ! tvs
+                  scalar_a = SQRT(2.0 * md / scalar_a) ! tas
+                  tstep_candidate = scalar_v * scalar_a
+     &                               / (scalar_v + scalar_a)
+                  tstep = MIN(tstep, tstep_candidate)
             end do
-            scalar_as = scalar_as + 1.0e-15
-            scalar_vs = scalar_vs + 1.0e-15
-            scalar_vs = md / scalar_vs              ! tvs
-            scalar_as = SQRT(2.0 * md / scalar_as)  ! tas
-            tstep = MINVAL(scalar_vs * scalar_as 
-     &            / (scalar_vs + scalar_as))
-            tstep = MIN(tstep, mt / DBLE(STINTLENGTH))
             t = t + tstep
-
-C           PHASE 3: Half-timestep propagation of position
-            pos = pos + (vel * tstep) 
-     &              + tstep*tstep * accel / 2.
-C             if (DEBUG .eq. 1) then
-C                   open (10, file='output_file.txt',
-C      &                  status='unknown')
-C                   write(10, *) tstep
-C                   write(10, *) accel
-C                   write(10, *) vel
-C                   write(10, *) pos
-
-C                   if (its.eq.STINTLENGTH) then
-C                         goto 10
-C                   end if
-C             end if
 
             ! Since some are left, we need to calculate the fields for:
 C           PHASE 4: Calculate new acceleration
-            alive = 0
+            alive = 1
             do idx = 1,particles
+C                 PHASE 3: Half-timestep propagation of position
+                  do cdx = 1,3
+                        pos(idx,cdx) = pos(idx,cdx) 
+     &                        + (vel(idx,cdx) * tstep) 
+     &                        + tstep * tstep * accel(idx,cdx) / 2.
+                  end do
                   if (.not. dead(idx)) then
                         alive = alive + 1
 
@@ -240,20 +219,17 @@ C           PHASE 4: Calculate new acceleration
      &                                     ms(idx), ms(jdx), 
      &                                     accel_new(idx, :), 
      &                                     accel_new(jdx, :))
-C                               if (DEBUG .eq. 1) then
-C                                     if (its.eq.1) then
-C                                           write(10, *) idx, jdx
-C                                           write(10, *) 
-C      &                                  NORM2(pos(idx, :) - pos(jdx, :))
-C                                           write(10, *) accel_new(idx, :)
-C                                     end if
-C                               end if
                         end do
                   end if
             end do
-
-C           PHASE 5: Half-timestep propagation of velocities
-            vel = vel + tstep * (accel + accel_new) / 2.
+C                 PHASE 5: Half-timestep propagation of velocities
+            do idx = 1,particles
+                  do cdx = 1,3
+                        vel(idx, cdx) = vel(idx, cdx) 
+     &                                  + tstep * (accel(idx, cdx) 
+     &                                  + accel_new(idx, cdx)) / 2.
+                  end do
+            end do   
       end do
  10   continue
       times = times * 1.0e+6

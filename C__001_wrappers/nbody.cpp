@@ -64,6 +64,15 @@ public:
         int its = 0;
         int recorded = 0;
 
+        // double test = positions[2];
+        // for(int i = 0; i < 20; i++){
+        //     test = test * 10;
+        //     stream << floor(test);
+        //     test = test - (double)floor(test);
+        // }
+        // stream << "\n";
+        // displayOnMATLAB(stream);
+
         nbody( \
               &particles,  \
               positions, \
