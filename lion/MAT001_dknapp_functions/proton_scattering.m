@@ -3,8 +3,14 @@ clearvars
 constants = physical_constants();
 
 % Simulation time
-start_time =  0.0;
 end_time   =  10.0;
+
+% Simulation timescales (us)
+record_step =  0.001;
+burst_time =   0.000;
+
+% Simulation step scale (mm)
+maxdist = 1.0e-6;
 
 %Create an empty experiment.
 sim = LAMMPSSimulation();

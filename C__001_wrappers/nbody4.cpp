@@ -57,7 +57,7 @@ public:
         const double  burst_time                        = inputs[11][0];
 
         double *trajectories \
-            = (double*)malloc(sizeof(double)*particles*STINTLENGTH*3);
+            = (double*)malloc(sizeof(double)*particles*STINTLENGTH*6);
         double *times        \
             = (double*)malloc(sizeof(double)*STINTLENGTH);
 
@@ -95,9 +95,9 @@ public:
         TypedArray<double> trajectories_out = \
             factory.createArray({(uint64_t)STINTLENGTH, \
                                  (uint64_t)particles, \
-                                 (uint64_t)3}, \
+                                 (uint64_t)6}, \
                 trajectories, \
-                trajectories + STINTLENGTH*particles*3);
+                trajectories + STINTLENGTH*particles*6);
         free(trajectories);
 
         TypedArray<double> times_out = \
